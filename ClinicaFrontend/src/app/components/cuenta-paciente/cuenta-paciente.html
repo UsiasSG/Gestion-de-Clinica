@@ -1,0 +1,286 @@
+<div *ngIf="cargando()" class="vacio">Cargando cuenta del paciente...</div>
+
+<ng-container *ngIf="!cargando() && cuenta() as c">
+
+  <!-- Resumen -->
+  <div class="resumen">
+    <div class="res" [class.alerta]="c.resumen.pendienteTotal > 0">
+      <span>Pendiente de cobro (con IVA)</span>
+      <strong>Q{{ c.resumen.pendienteTotal | number:'1.2-2' }}</strong>
+    </div>
+    <div class="res">
+      <span>Servicios cobrados</span>
+      <strong>Q{{ c.resumen.totalFacturado | number:'1.2-2' }}</strong>
+    </div>
+    <div class="res">
+      <span>Compras en farmacia</span>
+      <strong>Q{{ c.resumen.totalFarmacia | number:'1.2-2' }}</strong>
+    </div>
+  </div>
+
+  <!-- Cargos pendientes -->
+  <div class="seccion">
+    <span>Cargos pendientes ({{ pendientes().length }})</span>
+    <div *ngIf="permisos.puede('COBROS', 'crear')" style="display: flex; gap: 0.5rem;">
+      <button class="btn" (click)="abrirMedicamento()"> Cargar medicamento</button>
+      <button class="btn" (click)="abrirCargo()">+ Agregar cargo</button>
+    </div>
+  </div>
+
+  <table class="tabla" *ngIf="pendientes().length; else sinPendientes">
+    <thead>
+      <tr>
+        <th style="width: 32px;">
+          <input type="checkbox" [checked]="todosSeleccionados()" (change)="alternarTodos($any($event.target).checked)">
+        </th>
+        <th>FECHA</th>
+        <th>CONCEPTO</th>
+        <th>TIPO</th>
+        <th class="der">CANT.</th>
+        <th class="der">P. UNIT.</th>
+        <th class="der">SUBTOTAL</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let cg of pendientes()">
+        <td>
+          <input *ngIf="!cg.cobroAlAlta" type="checkbox" [checked]="seleccion().has(cg.id)" (change)="alternar(cg)">
+          <span *ngIf="cg.cobroAlAlta" title="Se cobra al dar de alta">🏥</span>
+        </td>
+        <td style="white-space: nowrap;">{{ cg.fecha | date:'dd/MM/yyyy HH:mm' }}</td>
+        <td style="font-weight: 600;">
+          {{ cg.descripcion }}
+          <small *ngIf="cg.cobroAlAlta" style="display: block; color: #b45309; font-weight: 600;">Hospitalización activa · se cobra al alta</small>
+        </td>
+        <td><span class="badge" [ngClass]="cg.tipo === 'Medicamento' ? 'b-verde' : 'b-azul'">{{ cg.tipo }}</span></td>
+        <td class="der">{{ cg.cantidad }}</td>
+        <td class="der">Q{{ cg.precioUnitario | number:'1.2-2' }}</td>
+        <td class="der" style="font-weight: 700;">Q{{ cg.subtotal | number:'1.2-2' }}</td>
+        <td><button *ngIf="permisos.puede('COBROS', 'eliminar')" class="link peligro" (click)="anularCargo(cg)">Anular</button></td>
+      </tr>
+    </tbody>
+  </table>
+  <ng-template #sinPendientes><div class="vacio">✓ El paciente no tiene cargos pendientes.</div></ng-template>
+
+  <div class="barra-cobro" *ngIf="pendientes().length && permisos.puede('COBROS', 'crear')">
+    <div style="font-size: 0.85rem; color: #075985;">
+      Seleccionado: Q{{ subtotalSeleccion() | number:'1.2-2' }} + IVA Q{{ ivaSeleccion() | number:'1.2-2' }}
+      = <strong style="font-size: 1rem;">Q{{ totalSeleccion() | number:'1.2-2' }}</strong>
+    </div>
+    <button class="btn btn-verde" [disabled]="seleccion().size === 0" (click)="abrirCobro()">💵 Cobrar seleccionados</button>
+  </div>
+
+  <!-- Facturas -->
+  <div class="seccion"><span>Facturas emitidas ({{ c.facturas.length }})</span></div>
+  <table class="tabla" *ngIf="c.facturas.length; else sinFacturas">
+    <thead><tr><th>No.</th><th>FECHA</th><th>TIPO</th><th>PAGO</th><th class="der">TOTAL</th><th>ESTADO</th><th></th></tr></thead>
+    <tbody>
+      <tr *ngFor="let f of c.facturas">
+        <td style="font-weight: 700;">#{{ f.id }}</td>
+        <td style="white-space: nowrap;">{{ f.fecha | date:'dd/MM/yyyy HH:mm' }}</td>
+        <td>{{ f.tipo }}</td>
+        <td>{{ f.metodoPago }}</td>
+        <td class="der" style="font-weight: 700;">Q{{ f.total | number:'1.2-2' }}</td>
+        <td><span class="badge" [ngClass]="claseEstado(f.estado)">{{ f.estado }}</span></td>
+        <td style="white-space: nowrap;">
+          <button class="link" (click)="verFactura(f)">Ver</button>
+          <button *ngIf="f.estado === 'Pagada' && permisos.puede('COBROS', 'eliminar')" class="link peligro" style="margin-left: 0.6rem;" (click)="anularFactura(f)">Anular</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <ng-template #sinFacturas><div class="vacio">Aún no hay facturas emitidas.</div></ng-template>
+
+  <!-- Farmacia -->
+  <div class="seccion"><span>Compras en farmacia ({{ c.ventas.length }})</span></div>
+  <table class="tabla" *ngIf="c.ventas.length; else sinVentas">
+    <thead><tr><th>VENTA</th><th>FECHA</th><th>PRODUCTOS</th><th class="der">TOTAL</th></tr></thead>
+    <tbody>
+      <tr *ngFor="let v of c.ventas">
+        <td style="font-weight: 700;">#{{ v.id }}</td>
+        <td style="white-space: nowrap;">{{ v.fechaVenta | date:'dd/MM/yyyy HH:mm' }}</td>
+        <td>{{ productosUnicos(v.productos) }}</td>
+        <td class="der" style="font-weight: 700;">Q{{ v.total | number:'1.2-2' }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <ng-template #sinVentas><div class="vacio">Sin compras en farmacia asociadas a este paciente.</div></ng-template>
+
+  <!-- Historial de cargos -->
+  <ng-container *ngIf="historialCargos().length">
+    <div class="seccion"><span>Historial de cargos cobrados o anulados</span></div>
+    <table class="tabla">
+      <thead><tr><th>FECHA</th><th>CONCEPTO</th><th class="der">SUBTOTAL</th><th>ESTADO</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let cg of historialCargos()">
+          <td style="white-space: nowrap;">{{ cg.fecha | date:'dd/MM/yyyy' }}</td>
+          <td>{{ cg.descripcion }}<span *ngIf="cg.idFactura" style="color: #64748b;"> · Factura #{{ cg.idFactura }}</span></td>
+          <td class="der">Q{{ cg.subtotal | number:'1.2-2' }}</td>
+          <td><span class="badge" [ngClass]="claseEstado(cg.estado)">{{ cg.estado }}</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </ng-container>
+
+  <!-- ═══ MODAL COBRO ═══ -->
+  <div *ngIf="modalCobro()" class="overlay">
+    <div class="modal">
+      <h3 style="margin-top: 0;">Cobro de servicios</h3>
+      <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 0.5rem; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem;">
+        <div style="display: flex; justify-content: space-between;"><span>Subtotal</span><span>Q{{ subtotalSeleccion() | number:'1.2-2' }}</span></div>
+        <div style="display: flex; justify-content: space-between;"><span>IVA (12%)</span><span>Q{{ ivaSeleccion() | number:'1.2-2' }}</span></div>
+        <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 1.1rem; color: #0284c7;"><span>Total</span><span>Q{{ totalSeleccion() | number:'1.2-2' }}</span></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 0.75rem;">
+        <div class="campo"><label>NIT</label><input type="text" [(ngModel)]="formCobro.nit" placeholder="CF"></div>
+        <div class="campo"><label>Nombre a facturar</label><input type="text" [(ngModel)]="formCobro.nombreFactura"></div>
+      </div>
+
+      <div class="campo"><label>Método de pago</label></div>
+      <div class="metodos">
+        <button *ngFor="let m of metodosPago" type="button" class="metodo" [class.activo]="formCobro.metodoPago === m" (click)="formCobro.metodoPago = m">{{ m }}</button>
+      </div>
+
+      <div *ngIf="formCobro.metodoPago === 'Efectivo'" class="campo">
+        <label>Efectivo recibido (Q)</label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="number" min="0" step="0.01" [(ngModel)]="formCobro.montoRecibido" style="flex: 1;">
+          <button type="button" class="btn" (click)="pagoExacto()">Exacto</button>
+        </div>
+        <small [style.color]="cambio < 0 ? '#b91c1c' : '#166534'" style="font-weight: 700;">
+          {{ cambio < 0 ? 'Falta' : 'Cambio' }}: Q{{ (cambio < 0 ? -cambio : cambio) | number:'1.2-2' }}
+        </small>
+      </div>
+      <div *ngIf="formCobro.metodoPago !== 'Efectivo'" class="campo">
+        <label>No. de voucher o referencia</label>
+        <input type="text" [(ngModel)]="formCobro.referencia">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.5rem;">
+        <button class="btn" (click)="modalCobro.set(false)">Cancelar</button>
+        <button class="btn btn-verde" [disabled]="procesando()" (click)="confirmarCobro()">{{ procesando() ? 'Procesando...' : 'Confirmar cobro' }}</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL MEDICAMENTO A CUENTA ═══ -->
+  <div *ngIf="modalMedicamento()" class="overlay">
+    <div class="modal">
+      <h3 style="margin-top: 0;"> Cargar medicamento a la cuenta</h3>
+
+      <div class="campo">
+        <label>Buscar medicamento</label>
+        <input type="text" [(ngModel)]="busquedaMedicamento" placeholder="Nombre o marca...">
+      </div>
+
+      <div class="campo">
+        <label>Medicamento * (existencia vigente en su sucursal)</label>
+        <select size="6" [(ngModel)]="formMedicamento.idMedicamento" style="height: auto;">
+          <option *ngFor="let m of medicamentosFiltrados" [ngValue]="m.id">
+            {{ m.nombre }}{{ m.marca ? ' · ' + m.marca : '' }} — Q{{ m.precio | number:'1.2-2' }} ({{ m.existencia }} disp.)
+          </option>
+        </select>
+        <small *ngIf="medicamentosFiltrados.length === 0" style="color: #b45309;">No hay medicamentos con existencia que coincidan.</small>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 0.75rem;">
+        <div class="campo">
+          <label>Cantidad *</label>
+          <input type="number" min="1" step="1" [max]="medicamentoSeleccionado?.existencia ?? null" [(ngModel)]="formMedicamento.cantidad">
+        </div>
+        <div class="campo">
+          <label>Observación</label>
+          <input type="text" [(ngModel)]="formMedicamento.observacion" placeholder="Ej. Entregado para tratamiento en casa">
+        </div>
+      </div>
+
+      <div *ngIf="medicamentoSeleccionado as m" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 0.5rem; padding: 0.6rem 0.9rem; font-size: 0.85rem;">
+        {{ formMedicamento.cantidad || 0 }} × Q{{ m.precio | number:'1.2-2' }} =
+        <strong>Q{{ subtotalMedicamento | number:'1.2-2' }}</strong> <span style="color: #64748b;">(más IVA al cobrar)</span>
+      </div>
+      <small style="color: #64748b; display: block; margin-top: 0.5rem;">
+        El medicamento se descuenta del inventario al confirmar. Si luego se anula el cargo, regresa al inventario.
+      </small>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem;">
+        <button class="btn" (click)="modalMedicamento.set(false)">Cancelar</button>
+        <button class="btn btn-primario" [disabled]="procesando()" (click)="guardarMedicamento()">{{ procesando() ? 'Cargando...' : 'Cargar a la cuenta' }}</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL CARGO MANUAL ═══ -->
+  <div *ngIf="modalCargo()" class="overlay">
+    <div class="modal">
+      <h3 style="margin-top: 0;">Agregar cargo</h3>
+      <div class="campo">
+        <label>Servicio del tarifario</label>
+        <select [ngModel]="formCargo.idServicio" (ngModelChange)="onServicioCargo($event)">
+          <option [ngValue]="null">Otro (escribir descripción)</option>
+          <option *ngFor="let s of c.servicios" [ngValue]="s.id">{{ s.tipo }} · {{ s.nombre }} — Q{{ s.precio | number:'1.2-2' }}</option>
+        </select>
+      </div>
+      <div class="campo" *ngIf="formCargo.idServicio == null">
+        <label>Descripción *</label>
+        <input type="text" [(ngModel)]="formCargo.descripcion" placeholder="Ej. Certificado médico">
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div class="campo"><label>Cantidad *</label><input type="number" min="1" step="1" [(ngModel)]="formCargo.cantidad"></div>
+        <div class="campo"><label>Precio unitario (Q) *</label><input type="number" min="0" step="0.01" [(ngModel)]="formCargo.precioUnitario"></div>
+      </div>
+      <small style="color: #64748b;">El IVA del 12 % se agrega al momento de cobrar.</small>
+      <div style="display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem;">
+        <button class="btn" (click)="modalCargo.set(false)">Cancelar</button>
+        <button class="btn btn-primario" [disabled]="procesando()" (click)="guardarCargo()">{{ procesando() ? 'Guardando...' : 'Agregar' }}</button>
+      </div>
+    </div>
+  </div>
+</ng-container>
+
+<!-- ═══ MODAL FACTURA / TICKET ═══ -->
+<div *ngIf="ticket() as t" class="overlay">
+  <div class="modal" style="width: 400px;">
+    <div class="ticket area-impresion">
+      <div style="text-align: center;">
+        <strong style="font-size: 1rem;">CLÍNICA MÉDICA</strong><br>
+        {{ t.sucursal || '' }}<br>
+        {{ t.tipo === 'Hospitalaria' ? 'Comprobante hospitalario' : 'Comprobante de servicios' }} No. {{ t.id }}<br>
+        {{ t.fecha | date:'dd/MM/yyyy HH:mm' }}
+        <div *ngIf="t.estado === 'Anulada'" style="color: #b91c1c; font-weight: 800; margin-top: 0.25rem;">*** ANULADA ***</div>
+      </div>
+      <hr>
+      <div>Paciente: {{ t.paciente }}</div>
+      <div>NIT: {{ t.nit }}</div>
+      <div>Nombre: {{ t.nombreFactura }}</div>
+      <div>Atendió: {{ t.cajero }}</div>
+      <hr>
+      <ng-container *ngFor="let g of gruposTicket(t)">
+        <div style="font-weight: 700; margin-top: 0.4rem;">{{ g.tipo | uppercase }}</div>
+        <div *ngFor="let i of g.items" style="margin-bottom: 0.3rem;">
+          <div>{{ i.descripcion }}</div>
+          <div class="fila"><span>{{ i.cantidad }} x Q{{ i.precioUnitario | number:'1.2-2' }}</span><span>Q{{ i.subtotal | number:'1.2-2' }}</span></div>
+        </div>
+        <div class="fila" style="font-style: italic;"><span>Subtotal {{ g.tipo }}</span><span>Q{{ g.subtotal | number:'1.2-2' }}</span></div>
+      </ng-container>
+      <div *ngIf="t.items.length === 0" style="color: #64748b;">(Detalle liberado por anulación)</div>
+      <hr>
+      <div class="fila"><span>Subtotal</span><span>Q{{ t.subtotal | number:'1.2-2' }}</span></div>
+      <div class="fila"><span>IVA (12%)</span><span>Q{{ t.impuesto | number:'1.2-2' }}</span></div>
+      <div class="fila" style="font-weight: 800; font-size: 0.95rem;"><span>TOTAL</span><span>Q{{ t.total | number:'1.2-2' }}</span></div>
+      <hr>
+      <div class="fila"><span>Pago</span><span>{{ t.metodoPago }}</span></div>
+      <div *ngIf="t.montoRecibido != null" class="fila"><span>Efectivo</span><span>Q{{ t.montoRecibido | number:'1.2-2' }}</span></div>
+      <div *ngIf="t.cambio != null" class="fila"><span>Cambio</span><span>Q{{ t.cambio | number:'1.2-2' }}</span></div>
+      <div *ngIf="t.referencia" class="fila"><span>Referencia</span><span>{{ t.referencia }}</span></div>
+      <div *ngIf="t.motivoAnulacion" style="margin-top: 0.4rem;">Motivo de anulación: {{ t.motivoAnulacion }}</div>
+      <hr>
+      <div style="text-align: center;"><small>Este comprobante no sustituye a la factura electrónica (FEL).</small></div>
+    </div>
+    <div class="no-imprimir" style="display: flex; gap: 0.6rem; margin-top: 1rem;">
+      <button class="btn" style="flex: 1;" (click)="imprimir()">🖨️ Imprimir</button>
+      <button class="btn btn-primario" style="flex: 1;" (click)="ticket.set(null)">Cerrar</button>
+    </div>
+  </div>
+</div>

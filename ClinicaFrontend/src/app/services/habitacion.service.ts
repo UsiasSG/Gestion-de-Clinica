@@ -55,6 +55,7 @@ export class HabitacionesService {
     this.conexion.on('HabitacionActualizada', (h: Habitacion) => this.aplicarCambio(h));
     this.conexion.on('HabitacionEliminada', (id: number) =>
       this.habitaciones.update(lista => lista.filter(x => x.id !== id)));
+    this.conexion.on('HabitacionesRecargar', () => this.cargar(this.idSucursalActual));
 
     this.conexion.onreconnecting(() => this.conectado.set(false));
     this.conexion.onreconnected(() => {

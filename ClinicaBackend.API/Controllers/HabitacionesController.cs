@@ -84,36 +84,7 @@ namespace ClinicaBackend.API.Controllers
             return Ok(lista);
         }
 
-        // GET: api/Habitaciones/pacientes-disponibles?buscar=juan
-        [HttpGet("pacientes-disponibles")]
-        [RequierePermiso("HABITACIONES", "Consultar")]
-        public async Task<IActionResult> ObtenerPacientesDisponibles([FromQuery] string? buscar)
-        {
-            var consulta = _db.Pacientes.AsNoTracking()
-                .Where(p => !_db.AsignacionHabitaciones.Any(a =>
-                    a.IdPaciente == p.Id && a.FechaEgreso == null && a.Estado == AsignacionActiva));
-
-            if (!string.IsNullOrWhiteSpace(buscar))
-            {
-                var q = buscar.Trim();
-                consulta = consulta.Where(p =>
-                    (p.Nombres + " " + p.Apellidos).Contains(q) ||
-                    (p.DocumentoIdentificacion != null && p.DocumentoIdentificacion.Contains(q)));
-            }
-
-            var lista = await consulta
-                .OrderBy(p => p.Nombres)
-                .Take(15)
-                .Select(p => new
-                {
-                    p.Id,
-                    NombreCompleto = p.Nombres + " " + p.Apellidos,
-                    Documento = p.DocumentoIdentificacion
-                })
-                .ToListAsync();
-
-            return Ok(lista);
-        }
+        
 
         // ═══════════════ CRUD DE HABITACIONES ═══════════════
 
@@ -217,123 +188,9 @@ namespace ClinicaBackend.API.Controllers
             return Ok(new { mensaje = $"Habitación {habitacion.NumeroHabitacion} marcada como {estado}.", habitacion = dto });
         }
 
-        // POST: api/Habitaciones/asignar
-        [HttpPost("asignar")]
-        [RequierePermiso("HABITACIONES", "Modificar")]
-        public async Task<IActionResult> AsignarPaciente([FromBody] AsignacionRequestDto dto)
-        {
-            if (dto.IdPaciente == null || !await _db.Pacientes.AnyAsync(p => p.Id == dto.IdPaciente))
-                return BadRequest(new { mensaje = "Seleccione un paciente válido." });
+        
 
-            var fechaIngreso = dto.FechaIngreso ?? DateTime.Now;
-            if (fechaIngreso > DateTime.Now.AddMinutes(5))
-                return BadRequest(new { mensaje = "La fecha de ingreso no puede ser futura." });
-
-            var estrategia = _db.Database.CreateExecutionStrategy();
-
-            try
-            {
-                var (rechazo, mensaje) = await estrategia.ExecuteAsync<(IActionResult? Rechazo, string? Mensaje)>(async () =>
-                {
-                    // Serializable: impide que dos usuarios asignen la misma cama al mismo tiempo (regla 14d)
-                    await using var transaccion = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-
-                    var habitacion = await _db.Habitaciones.FirstOrDefaultAsync(h => h.Id == dto.IdHabitacion);
-                    if (habitacion == null)
-                        return (NotFound(new { mensaje = "Habitación no encontrada." }), null);
-
-                    if (habitacion.Estado is Limpieza or Mantenimiento)
-                        return (BadRequest(new { mensaje = $"La habitación {habitacion.NumeroHabitacion} está en {habitacion.Estado} y no puede recibir pacientes." }), null);
-
-                    var ocupantes = await ContarOcupantesAsync(habitacion.Id);
-                    if (ocupantes >= habitacion.Capacidad)
-                        return (BadRequest(new { mensaje = $"La habitación {habitacion.NumeroHabitacion} ya está ocupada (capacidad {habitacion.Capacidad})." }), null);
-
-                    var habitacionActual = await _db.AsignacionHabitaciones
-                        .Where(a => a.IdPaciente == dto.IdPaciente && a.FechaEgreso == null && a.Estado == AsignacionActiva)
-                        .Select(a => a.Habitacion != null ? a.Habitacion.NumeroHabitacion : "?")
-                        .FirstOrDefaultAsync();
-                    if (habitacionActual != null)
-                        return (BadRequest(new { mensaje = $"El paciente ya está internado en la habitación {habitacionActual}. Registre su egreso primero." }), null);
-
-                    _db.AsignacionHabitaciones.Add(new AsignacionHabitacion
-                    {
-                        IdHabitacion = habitacion.Id,
-                        IdPaciente = dto.IdPaciente,
-                        FechaIngreso = fechaIngreso,
-                        Observaciones = string.IsNullOrWhiteSpace(dto.Observaciones) ? null : dto.Observaciones.Trim(),
-                        Estado = AsignacionActiva
-                    });
-
-                    habitacion.Estado = ocupantes + 1 >= habitacion.Capacidad ? Ocupada : Disponible;
-
-                    await _db.SaveChangesAsync();
-                    await transaccion.CommitAsync();
-
-                    return (null, $"Paciente asignado a la habitación {habitacion.NumeroHabitacion}.");
-                });
-
-                if (rechazo != null) return rechazo;
-
-                var habitacionDto = await NotificarAsync(dto.IdHabitacion);
-                return Ok(new { mensaje, habitacion = habitacionDto });
-            }
-            catch (Exception ex)
-            {
-                return Conflict(new { mensaje = "Otro usuario modificó la habitación al mismo tiempo. Actualice e intente de nuevo.", detalle = ex.Message });
-            }
-        }
-
-        // POST: api/Habitaciones/egreso/12
-        [HttpPost("egreso/{idAsignacion:int}")]
-        [RequierePermiso("HABITACIONES", "Modificar")]
-        public async Task<IActionResult> RegistrarEgreso(int idAsignacion, [FromBody] EgresoDto? dto)
-        {
-            var asignacion = await _db.AsignacionHabitaciones
-                .Include(a => a.Habitacion)
-                .FirstOrDefaultAsync(a => a.Id == idAsignacion);
-
-            if (asignacion == null) return NotFound(new { mensaje = "Registro de asignación no encontrado." });
-            if (asignacion.FechaEgreso != null) return BadRequest(new { mensaje = "Este paciente ya tiene registrado su egreso." });
-
-            var fechaEgreso = dto?.FechaEgreso ?? DateTime.Now;
-            if (fechaEgreso < asignacion.FechaIngreso)
-                return BadRequest(new { mensaje = "La fecha de egreso no puede ser anterior a la de ingreso." });
-            if (fechaEgreso > DateTime.Now.AddMinutes(5))
-                return BadRequest(new { mensaje = "La fecha de egreso no puede ser futura." });
-
-            asignacion.FechaEgreso = fechaEgreso;
-            asignacion.Estado = AsignacionFinalizada;
-
-            var observacion = dto?.Observaciones?.Trim();
-            if (!string.IsNullOrEmpty(observacion))
-            {
-                asignacion.Observaciones = string.IsNullOrWhiteSpace(asignacion.Observaciones)
-                    ? $"Egreso: {observacion}"
-                    : $"{asignacion.Observaciones} | Egreso: {observacion}";
-            }
-
-            var mensaje = "Egreso registrado correctamente.";
-            var habitacion = asignacion.Habitacion;
-
-            if (habitacion != null)
-            {
-                var restantes = await _db.AsignacionHabitaciones.CountAsync(a =>
-                    a.IdHabitacion == habitacion.Id && a.Id != idAsignacion && a.FechaEgreso == null && a.Estado == AsignacionActiva);
-
-                // Vacía → Limpieza; con pacientes pero con cupo → Disponible
-                habitacion.Estado = restantes == 0 ? Limpieza
-                                  : restantes < habitacion.Capacidad ? Disponible
-                                  : Ocupada;
-
-                if (restantes == 0) mensaje = $"Egreso registrado. La habitación {habitacion.NumeroHabitacion} pasó a Limpieza.";
-            }
-
-            await _db.SaveChangesAsync();
-
-            var habitacionDto = habitacion != null ? await NotificarAsync(habitacion.Id) : null;
-            return Ok(new { mensaje, habitacion = habitacionDto });
-        }
+        
 
         // ═══════════════ AUXILIARES ═══════════════
 
@@ -436,17 +293,4 @@ namespace ClinicaBackend.API.Controllers
         public string? Estado { get; set; }
     }
 
-    public class AsignacionRequestDto
-    {
-        public int IdHabitacion { get; set; }
-        public int? IdPaciente { get; set; }
-        public DateTime? FechaIngreso { get; set; }
-        public string? Observaciones { get; set; }
-    }
-
-    public class EgresoDto
-    {
-        public DateTime? FechaEgreso { get; set; }
-        public string? Observaciones { get; set; }
-    }
 }

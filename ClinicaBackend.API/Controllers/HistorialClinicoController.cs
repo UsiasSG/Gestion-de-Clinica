@@ -201,10 +201,21 @@ namespace ClinicaBackend.API.Controllers
                 .OrderBy(e => e.Nombres)
                 .Select(e => new { e.Id, Nombre = e.Nombres + " " + e.Apellidos, Tipo = e.TipoEmpleado })
                 .ToListAsync();
+            var serviciosConsulta = await _db.ServiciosClinicos.AsNoTracking()
+                .Where(s => s.Activo && s.Tipo == TiposServicio.Consulta)
+                .OrderBy(s => s.Precio)
+                .Select(s => new { s.Id, s.Nombre, s.Precio })
+                .ToListAsync();
+
+            var serviciosExamen = await _db.ServiciosClinicos.AsNoTracking()
+                .Where(s => s.Activo && s.Tipo == TiposServicio.Examen)
+                .OrderBy(s => s.Nombre)
+                .Select(s => new { s.Id, s.Nombre, s.Precio })
+                .ToListAsync();
 
             var permisos = await PermisosDelUsuarioAsync();
 
-            return Ok(new { paciente, consultas, diagnosticos, tratamientos, examenes, evolucion, archivos, medicos, personalClinico, permisos });
+            return Ok(new { paciente, consultas, diagnosticos, tratamientos, examenes, evolucion, archivos, medicos, personalClinico, serviciosConsulta, serviciosExamen, permisos });
         }
 
         // ═══════════════ CONSULTAS ═══════════════
@@ -222,6 +233,18 @@ namespace ClinicaBackend.API.Controllers
             var (doctor, errorDoctor) = await ResolverResponsableAsync(model.IdDoctor, soloDoctores: true);
             if (doctor == null) return BadRequest(new { mensaje = errorDoctor });
 
+            // Tipo de consulta del tarifario (genera el cobro)
+            ServicioClinico? servicio = null;
+            if (model.IdServicio != null)
+            {
+                servicio = await _db.ServiciosClinicos.FirstOrDefaultAsync(s => s.Id == model.IdServicio && s.Activo && s.Tipo == TiposServicio.Consulta);
+                if (servicio == null) return BadRequest(new { mensaje = "El tipo de consulta seleccionado no es válido." });
+            }
+            else if (await _db.ServiciosClinicos.AnyAsync(s => s.Activo && s.Tipo == TiposServicio.Consulta))
+            {
+                return BadRequest(new { mensaje = "Seleccione el tipo de consulta para registrar su cobro." });
+            }
+
             var diagnosticos = (model.Diagnosticos ?? new()).Where(d => !string.IsNullOrWhiteSpace(d.Descripcion)).ToList();
             var tratamientos = (model.Tratamientos ?? new()).Where(t => !string.IsNullOrWhiteSpace(t.Descripcion)).ToList();
 
@@ -237,6 +260,7 @@ namespace ClinicaBackend.API.Controllers
                 IdPaciente = model.IdPaciente,
                 IdDoctor = doctor.Id,
                 IdSucursal = await _db.ObtenerIdSucursalAsync(User) ?? doctor.IdSucursal,
+                IdServicio = servicio?.Id,
                 FechaConsulta = DateTime.Now,
                 MotivoConsulta = model.MotivoConsulta.Trim(),
                 Sintomatologia = Limpiar(model.Sintomatologia),
@@ -272,9 +296,31 @@ namespace ClinicaBackend.API.Controllers
                 });
             }
 
-            // Un solo SaveChanges: consulta, diagnósticos y tratamientos se guardan juntos o no se guarda nada
+            if (servicio != null)
+            {
+                _db.CargosPaciente.Add(new CargoPaciente
+                {
+                    IdPaciente = model.IdPaciente.Value,
+                    Tipo = TiposServicio.Consulta,
+                    Descripcion = servicio.Nombre,
+                    Cantidad = 1,
+                    PrecioUnitario = servicio.Precio,
+                    Subtotal = servicio.Precio,
+                    Fecha = DateTime.Now,
+                    IdServicio = servicio.Id,
+                    Consulta = consulta,
+                    IdUsuario = User.ObtenerIdUsuario(),
+                    Estado = EstadosCargo.Pendiente
+                });
+            }
+
+            // Un solo SaveChanges: consulta, diagnósticos, tratamientos y cargo se guardan juntos o no se guarda nada
             await _db.SaveChangesAsync();
-            return Ok(new { mensaje = "Consulta registrada correctamente.", id = consulta.Id });
+
+            var mensaje = servicio != null
+                ? $"Consulta registrada. Se generó un cargo de Q{servicio.Precio:N2} (más IVA) en la cuenta del paciente."
+                : "Consulta registrada correctamente.";
+            return Ok(new { mensaje, id = consulta.Id });
         }
 
         // PUT: api/historial/consultas/5
@@ -307,6 +353,8 @@ namespace ClinicaBackend.API.Controllers
             if (diagnosticos.Count > 0 && !await _permisos.TienePermisoAsync(IdUsuarioActual(), "DIAGNOSTICOS", "Eliminar"))
                 return StatusCode(403, new { mensaje = "La consulta tiene diagnósticos y su rol no tiene permiso para eliminarlos." });
 
+            
+
             var idsDiagnosticos = diagnosticos.Select(d => d.Id).ToList();
 
             // Los tratamientos se conservan: solo se desvinculan de la consulta y sus diagnósticos
@@ -328,6 +376,17 @@ namespace ClinicaBackend.API.Controllers
             // Los exámenes también se conservan
             var examenes = await _db.Examenes.Where(e => e.IdConsulta == id).ToListAsync();
             foreach (var e in examenes) e.IdConsulta = null;
+
+            // Cobros: si ya se facturó, no se puede eliminar; si está pendiente, el cargo se anula
+            var cargosConsulta = await _db.CargosPaciente.Where(c => c.IdConsulta == id).ToListAsync();
+            if (cargosConsulta.Any(c => c.Estado == EstadosCargo.Facturado))
+                return BadRequest(new { mensaje = "La consulta ya fue cobrada. Anule primero la factura en la pestaña Cuenta." });
+            foreach (var c in cargosConsulta)
+            {
+                if (c.Estado == EstadosCargo.Pendiente) c.Estado = EstadosCargo.Anulado;
+                c.IdConsulta = null;
+            }
+
 
             _db.Diagnosticos.RemoveRange(diagnosticos);
             _db.ConsultasMedicas.Remove(consulta);
@@ -478,21 +537,53 @@ namespace ClinicaBackend.API.Controllers
             if (model.IdPaciente == null || !await _db.Pacientes.AnyAsync(p => p.Id == model.IdPaciente))
                 return BadRequest(new { mensaje = "Paciente no válido." });
 
+            ServicioClinico? servicio = null;
+            if (model.IdServicio != null)
+            {
+                servicio = await _db.ServiciosClinicos.FirstOrDefaultAsync(s => s.Id == model.IdServicio && s.Activo && s.Tipo == TiposServicio.Examen);
+                if (servicio == null) return BadRequest(new { mensaje = "El examen seleccionado del tarifario no es válido." });
+                if (string.IsNullOrWhiteSpace(model.NombreExamen)) model.NombreExamen = servicio.Nombre;
+            }
+
             var error = await ValidarExamenAsync(model, model.IdPaciente.Value);
             if (error != null) return BadRequest(new { mensaje = error });
 
-            _db.Examenes.Add(new Examen
+            var examen = new Examen
             {
                 IdPaciente = model.IdPaciente,
                 IdConsulta = model.IdConsulta,
+                IdServicio = servicio?.Id,
                 NombreExamen = model.NombreExamen!.Trim(),
                 Resultado = Limpiar(model.Resultado),
                 FechaExamen = model.FechaExamen ?? DateTime.Now,
                 Observaciones = Limpiar(model.Observaciones)
-            });
+            };
+            _db.Examenes.Add(examen);
+
+            if (servicio != null)
+            {
+                _db.CargosPaciente.Add(new CargoPaciente
+                {
+                    IdPaciente = model.IdPaciente.Value,
+                    Tipo = TiposServicio.Examen,
+                    Descripcion = servicio.Nombre,
+                    Cantidad = 1,
+                    PrecioUnitario = servicio.Precio,
+                    Subtotal = servicio.Precio,
+                    Fecha = DateTime.Now,
+                    IdServicio = servicio.Id,
+                    Examen = examen,
+                    IdUsuario = User.ObtenerIdUsuario(),
+                    Estado = EstadosCargo.Pendiente
+                });
+            }
 
             await _db.SaveChangesAsync();
-            return Ok(new { mensaje = "Examen registrado correctamente." });
+
+            var mensaje = servicio != null
+                ? $"Examen registrado. Se generó un cargo de Q{servicio.Precio:N2} (más IVA) en la cuenta del paciente."
+                : "Examen registrado correctamente.";
+            return Ok(new { mensaje });
         }
 
         // PUT: api/historial/examenes/5
@@ -544,6 +635,15 @@ namespace ClinicaBackend.API.Controllers
             // Los archivos adjuntos se conservan en el historial, solo se desvinculan del examen
             var archivos = await _db.ArchivosClinicos.Where(a => a.IdExamen == id).ToListAsync();
             foreach (var a in archivos) a.IdExamen = null;
+
+            var cargosExamen = await _db.CargosPaciente.Where(c => c.IdExamen == id).ToListAsync();
+            if (cargosExamen.Any(c => c.Estado == EstadosCargo.Facturado))
+                return BadRequest(new { mensaje = "El examen ya fue cobrado. Anule primero la factura en la pestaña Cuenta." });
+            foreach (var c in cargosExamen)
+            {
+                if (c.Estado == EstadosCargo.Pendiente) c.Estado = EstadosCargo.Anulado;
+                c.IdExamen = null;
+            }
 
             _db.Examenes.Remove(examen);
             await _db.SaveChangesAsync();
@@ -794,9 +894,11 @@ namespace ClinicaBackend.API.Controllers
                 Diagnosticar = await _permisos.TienePermisoAsync(idUsuario, "DIAGNOSTICOS", "Crear"),
                 ModificarDiagnostico = await _permisos.TienePermisoAsync(idUsuario, "DIAGNOSTICOS", "Modificar"),
                 EliminarDiagnostico = await _permisos.TienePermisoAsync(idUsuario, "DIAGNOSTICOS", "Eliminar"),
+                VerCuenta = await _permisos.TienePermisoAsync(idUsuario, "COBROS", "Consultar"),
                 EsDoctor = tipo == "Doctor",
                 EsPersonalClinico = tipo == "Doctor" || tipo == "Enfermera",
-                Empleado = empleado != null ? $"{empleado.Nombres} {empleado.Apellidos} ({empleado.TipoEmpleado})" : null
+                Empleado = empleado != null ? $"{empleado.Nombres} {empleado.Apellidos} ({empleado.TipoEmpleado})" : null,
+                Referir = await _permisos.TienePermisoAsync(idUsuario, "HOSPITALIZACION", "Crear"),
             };
         }
 
@@ -809,6 +911,7 @@ namespace ClinicaBackend.API.Controllers
     {
         public int? IdPaciente { get; set; }
         public int? IdDoctor { get; set; }
+        public int? IdServicio { get; set; }
         public string? MotivoConsulta { get; set; }
         public string? Sintomatologia { get; set; }
         public string? Observaciones { get; set; }
@@ -856,6 +959,7 @@ namespace ClinicaBackend.API.Controllers
     {
         public int? IdPaciente { get; set; }
         public int? IdConsulta { get; set; }
+        public int? IdServicio { get; set; }
         public string? NombreExamen { get; set; }
         public DateTime? FechaExamen { get; set; }
         public string? Resultado { get; set; }

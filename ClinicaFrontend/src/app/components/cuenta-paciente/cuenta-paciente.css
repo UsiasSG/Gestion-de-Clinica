@@ -1,0 +1,242 @@
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(170px,1fr));
+  gap: .75rem;
+  margin-bottom: 1rem
+}
+
+.res {
+  border: 1px solid #e2e8f0;
+  border-radius: .6rem;
+  padding: .75rem 1rem;
+  background: #fff
+}
+
+  .res span {
+    display: block;
+    font-size: .7rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase
+  }
+
+  .res strong {
+    font-size: 1.25rem;
+    color: #0f172a
+  }
+
+  .res.alerta {
+    border-color: #fcd34d;
+    background: #fffbeb
+  }
+
+    .res.alerta strong {
+      color: #b45309
+    }
+
+.seccion {
+  font-weight: 800;
+  font-size: .85rem;
+  color: #0f172a;
+  margin: 1.25rem 0 .5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .84rem
+}
+
+  .tabla th {
+    text-align: left;
+    background: #f8fafc;
+    padding: .55rem;
+    font-size: .7rem;
+    color: #475569;
+    border-bottom: 1px solid #e2e8f0
+  }
+
+  .tabla td {
+    padding: .55rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top
+  }
+
+.der {
+  text-align: right
+}
+
+.barra-cobro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: .6rem;
+  padding: .75rem 1rem;
+  margin-top: .75rem
+}
+
+.badge {
+  padding: .15rem .5rem;
+  border-radius: .3rem;
+  font-size: .7rem;
+  font-weight: 700
+}
+
+.b-ambar {
+  background: #fef3c7;
+  color: #92400e
+}
+
+.b-verde {
+  background: #dcfce7;
+  color: #166534
+}
+
+.b-gris {
+  background: #f1f5f9;
+  color: #64748b
+}
+
+.b-azul {
+  background: #e0f2fe;
+  color: #0369a1
+}
+
+.btn {
+  padding: .5rem .9rem;
+  border-radius: .4rem;
+  font-weight: 600;
+  font-size: .82rem;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155
+}
+
+.btn-primario {
+  background: #0284c7;
+  color: #fff;
+  border: none
+}
+
+.btn-verde {
+  background: #16a34a;
+  color: #fff;
+  border: none
+}
+
+.btn:disabled {
+  opacity: .55;
+  cursor: not-allowed
+}
+
+.link {
+  background: none;
+  border: none;
+  color: #0284c7;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: .78rem;
+  padding: 0
+}
+
+.peligro {
+  color: #ef4444
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200
+}
+
+.modal {
+  background: #fff;
+  width: 460px;
+  max-width: calc(100% - 2rem);
+  border-radius: .75rem;
+  padding: 1.5rem;
+  max-height: 92vh;
+  overflow-y: auto
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  margin-bottom: .75rem
+}
+
+  .campo label {
+    font-size: .7rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase
+  }
+
+  .campo input, .campo select {
+    padding: .5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: .375rem;
+    font-size: .875rem
+  }
+
+.metodos {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: .4rem;
+  margin-bottom: .75rem
+}
+
+.metodo {
+  padding: .45rem;
+  border: 1px solid #cbd5e1;
+  border-radius: .375rem;
+  background: #f8fafc;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: .8rem
+}
+
+  .metodo.activo {
+    background: #0284c7;
+    color: #fff;
+    border-color: #0284c7
+  }
+
+.ticket {
+  font-family: 'Courier New',monospace;
+  font-size: .8rem;
+  border: 1px dashed #cbd5e1;
+  padding: 1rem;
+  background: #fff
+}
+
+  .ticket hr {
+    border: none;
+    border-top: 1px dashed #94a3b8;
+    margin: .5rem 0
+  }
+
+  .ticket .fila {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem
+  }
+
+.vacio {
+  text-align: center;
+  color: #94a3b8;
+  padding: 1.25rem;
+  font-size: .85rem
+}

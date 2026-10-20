@@ -31,8 +31,10 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { ruta: '/historial',    etiqueta: 'Historial Clínico',    icono: '📋', modulo: 'HISTORIAL' },
     { ruta: '/personal',     etiqueta: 'Gestión de Personal',  icono: '👥', modulo: 'PERSONAL' },
     { ruta: '/inventario',   etiqueta: 'Inventario',           icono: '📦', modulo: 'INVENTARIO' },
+    { ruta: '/hospitalizacion', etiqueta: 'Hospitalización', icono: '🏥', modulo: 'HOSPITALIZACION' },
     { ruta: '/habitaciones', etiqueta: 'Habitaciones',         icono: '🛏️', modulo: 'HABITACIONES' },
     { ruta: '/pos',          etiqueta: 'Punto de Venta / POS', icono: '💊', modulo: 'POS' },
+    { ruta: '/tarifario',    etiqueta: 'Tarifario',            icono: '🏷️', modulo: 'TARIFARIO' },
     { ruta: '/roles',        etiqueta: 'Roles y Permisos',     icono: '🔐', modulo: 'ROLES' }
   ];
 

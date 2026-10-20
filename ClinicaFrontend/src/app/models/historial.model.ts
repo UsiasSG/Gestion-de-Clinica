@@ -112,6 +112,8 @@ export interface PermisosHistorial {
   esDoctor: boolean;
   esPersonalClinico: boolean;
   empleado?: string | null;
+  verCuenta: boolean;
+  referir: boolean;
 }
 
 export interface HistorialClinico {
@@ -125,6 +127,8 @@ export interface HistorialClinico {
   medicos: EmpleadoClinico[];
   personalClinico: EmpleadoClinico[];
   permisos: PermisosHistorial;
+  serviciosConsulta: ServicioTarifa[];
+  serviciosExamen: ServicioTarifa[];
 }
 
 // ───────── Payloads ─────────
@@ -137,6 +141,7 @@ export interface ConsultaPayload {
   observaciones: string;
   diagnosticos: DiagnosticoItem[];
   tratamientos: TratamientoItem[];
+  idServicio: number | null;
 }
 
 export interface ConsultaUpdatePayload {
@@ -176,6 +181,7 @@ export interface ExamenPayload {
   fechaExamen: string;
   resultado: string;
   observaciones: string;
+  idServicio?: number | null;
 }
 
 export interface EvolucionPayload {
@@ -191,4 +197,9 @@ export interface ArchivoPayload {
   idExamen: number | null;
   categoria: string;
   descripcion: string;
+}
+  export interface ServicioTarifa {
+  id: number;
+  nombre: string;
+  precio: number;
 }

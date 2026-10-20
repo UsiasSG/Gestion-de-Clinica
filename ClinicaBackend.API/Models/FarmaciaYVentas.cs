@@ -181,6 +181,10 @@ namespace ClinicaBackend.API.Models
         [MaxLength(250)]
         public string? Observacion { get; set; }
 
+        [Column("id_cargo")]
+        public int? IdCargo { get; set; }
+
+        public virtual CargoPaciente? Cargo { get; set; }
         public virtual LoteMedicamento? Lote { get; set; }
         public virtual Usuario? Usuario { get; set; }
         public virtual Venta? Venta { get; set; }
@@ -193,7 +197,8 @@ namespace ClinicaBackend.API.Models
         public const string UsoClinico = "Uso clínico";
         public const string Merma = "Merma";
         public const string BajaVencimiento = "Baja por vencimiento";
-
+        public const string CargoCuenta = "Cargo a cuenta";
+        public const string Devolucion = "Devolución";
         public static readonly string[] SalidasManuales = { UsoClinico, Merma, BajaVencimiento };
     }
 }

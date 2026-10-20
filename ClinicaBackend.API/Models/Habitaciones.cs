@@ -57,7 +57,11 @@ namespace ClinicaBackend.API.Models
 		[Column("estado")]
 		public string? Estado { get; set; }
 
-		public virtual Habitacion? Habitacion { get; set; }
+        [Column("id_hospitalizacion")]
+        public int? IdHospitalizacion { get; set; }
+
+        public virtual Hospitalizacion? Hospitalizacion { get; set; }
+        public virtual Habitacion? Habitacion { get; set; }
 		public virtual Paciente? Paciente { get; set; }
 	}
 }

@@ -46,11 +46,25 @@ export const routes: Routes = [
         data: { modulo: 'POS' },
         loadComponent: () => import('./components/pos/pos').then(m => m.PosComponent)
       },
+
+      {
+        path: 'tarifario',
+        data: { modulo: 'TARIFARIO' },
+        loadComponent: () => import('./components/tarifario/tarifario').then(m => m.TarifarioComponent)
+      },
+
       {
         path: 'roles',
         data: { modulo: 'ROLES' },
         loadComponent: () => import('./components/roles/roles').then(m => m.RolesComponent)
       },
+
+      {
+        path: 'hospitalizacion',
+        data: { modulo: 'HOSPITALIZACION' },
+        loadComponent: () => import('./components/hospitalizacion/hospitalizacion').then(m => m.HospitalizacionComponent)
+},
+
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
   },

@@ -32,6 +32,10 @@ namespace ClinicaBackend.API.Models
         [Column("observaciones")]
         public string? Observaciones { get; set; }
 
+        [Column("id_servicio")]
+        public int? IdServicio { get; set; }
+
+        public virtual ServicioClinico? Servicio { get; set; }
         public virtual Paciente? Paciente { get; set; }
         public virtual Empleado? Doctor { get; set; }
         public virtual Sucursal? Sucursal { get; set; }
@@ -132,6 +136,10 @@ namespace ClinicaBackend.API.Models
         [Column("observaciones")]
         public string? Observaciones { get; set; }
 
+        [Column("id_servicio")]
+        public int? IdServicio { get; set; }
+
+        public virtual ServicioClinico? Servicio { get; set; }
         public virtual Paciente? Paciente { get; set; }
         public virtual ConsultaMedica? Consulta { get; set; }
     }

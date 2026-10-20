@@ -66,6 +66,7 @@ builder.Services.AddAuthentication(options =>
 // 3. Controladores y SignalR
 builder.Services.AddControllers();
 builder.Services.AddScoped<ClinicaBackend.API.Services.PermisosService>();
+builder.Services.AddScoped<ClinicaBackend.API.Services.InventarioClinicoService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSignalR();
 

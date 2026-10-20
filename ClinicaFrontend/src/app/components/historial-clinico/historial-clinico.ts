@@ -2,14 +2,17 @@ import { Component, effect, inject, input, output, signal, untracked } from '@an
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
+import { CuentaPacienteComponent } from '../cuenta-paciente/cuenta-paciente';
 import { HistorialService } from '../../services/historial.service';
+import { HospitalizacionService } from '../../services/hospitalizacion.service';
 import {
   ArchivoClinico, Consulta, DiagnosticoRegistro, EvolucionRegistro, ExamenRegistro,
   HistorialClinico, TratamientoRegistro
 } from '../../models/historial.model';
 
-type Pestana = 'consultas' | 'examenes' | 'diagnosticos' | 'tratamientos' | 'evolucion' | 'archivos';
+type Pestana = 'consultas' | 'examenes' | 'diagnosticos' | 'tratamientos' | 'evolucion' | 'archivos' | 'cuenta';
 type Formulario = 'consulta' | 'diagnostico' | 'examen' | 'tratamiento' | 'evolucion' | 'archivo' | null;
+
 
 interface FilaDiagnostico { codigoCie: string; descripcion: string; }
 interface FilaTratamiento { descripcion: string; indicaciones: string; fechaInicio: string; fechaFin: string; }
@@ -17,11 +20,12 @@ interface FilaTratamiento { descripcion: string; indicaciones: string; fechaInic
 @Component({
   selector: 'app-historial-clinico',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+     imports: [CommonModule, FormsModule, CuentaPacienteComponent],
   templateUrl: './historial-clinico.html',
   styleUrl: './historial-clinico.css'
 })
 export class HistorialClinicoComponent {
+  private hospitalizacionService = inject(HospitalizacionService);
   private service = inject(HistorialService);
 
   idPaciente = input.required<number>();
@@ -43,6 +47,8 @@ export class HistorialClinicoComponent {
 
   // Id del registro que se está editando (null = creando uno nuevo)
   editandoId: number | null = null;
+  referirDiagnosticoId: number | null = null;
+  formReferencia = { tipo: 'Vigilancia', motivo: '' };
 
   formConsulta = this.consultaVacia();
   formDiagnostico = this.diagnosticoVacio();
@@ -134,16 +140,23 @@ export class HistorialClinicoComponent {
     this.abrirEdicion('diagnostico', d.id);
   }
 
-  editarExamen(ex: ExamenRegistro): void {
-    this.formExamen = {
-      idConsulta: ex.idConsulta ?? null,
-      nombreExamen: ex.nombreExamen,
-      fechaExamen: ex.fechaExamen.slice(0, 10),
-      resultado: ex.resultado ?? '',
-      observaciones: ex.observaciones ?? ''
-    };
-    this.abrirEdicion('examen', ex.id);
-  }
+     editarExamen(ex: ExamenRegistro): void {
+     this.formExamen = {
+       idConsulta: ex.idConsulta ?? null,
+       idServicio: null,
+       nombreExamen: ex.nombreExamen,
+       fechaExamen: ex.fechaExamen.slice(0, 10),
+       resultado: ex.resultado ?? '',
+       observaciones: ex.observaciones ?? ''
+     };
+     this.abrirEdicion('examen', ex.id);
+   }
+
+   onServicioExamen(id: number | null): void {
+     this.formExamen.idServicio = id;
+     const servicio = this.historial()?.serviciosExamen.find(s => s.id === id);
+     if (servicio) this.formExamen.nombreExamen = servicio.nombre;
+   }
 
   editarTratamiento(t: TratamientoRegistro): void {
     this.formTratamiento = {
@@ -214,10 +227,15 @@ export class HistorialClinicoComponent {
     if (tratamientos.some(t => t.fechaInicio && t.fechaFin && t.fechaFin < t.fechaInicio)) {
       return this.avisar('En los tratamientos, la fecha de fin no puede ser anterior a la de inicio.');
     }
+    if ((this.historial()?.serviciosConsulta.length ?? 0) > 0 && f.idServicio == null) {
+    return this.avisar('Seleccione el tipo de consulta.');
+   }
+
 
     this.enviar(this.service.registrarConsulta({
       idPaciente: this.idPaciente(),
       idDoctor: f.idDoctor,
+      idServicio: f.idServicio,
       motivoConsulta: f.motivoConsulta.trim(),
       sintomatologia: f.sintomatologia.trim(),
       observaciones: f.observaciones.trim(),
@@ -263,6 +281,7 @@ export class HistorialClinicoComponent {
     const datos = {
       idPaciente: this.idPaciente(),
       idConsulta: f.idConsulta,
+      idServicio: this.enEdicion ? null : f.idServicio,
       nombreExamen: f.nombreExamen.trim(),
       fechaExamen: f.fechaExamen,
       resultado: f.resultado.trim(),
@@ -328,6 +347,24 @@ export class HistorialClinicoComponent {
     if (!confirm(`¿Eliminar el diagnóstico "${d.descripcion}"?`)) return;
     this.enviar(this.service.eliminarDiagnostico(d.id));
   }
+
+     abrirReferencia(d: DiagnosticoRegistro): void {
+     this.referirDiagnosticoId = d.id;
+     this.formReferencia = { tipo: 'Vigilancia', motivo: d.descripcion };
+   }
+
+   guardarReferencia(): void {
+     if (!this.referirDiagnosticoId) return;
+     if (!this.formReferencia.motivo.trim()) return this.avisar('Indique el motivo de la hospitalización.');
+     this.enviar(this.hospitalizacionService.solicitar({
+       idPaciente: this.idPaciente(),
+       idDiagnostico: this.referirDiagnosticoId,
+       idMedicoResponsable: null,
+       tipo: this.formReferencia.tipo,
+       motivo: this.formReferencia.motivo.trim()
+     }));
+     this.referirDiagnosticoId = null;
+   }
 
   eliminarExamen(ex: ExamenRegistro): void {
     if (!confirm(`¿Eliminar el examen "${ex.nombreExamen}"?${ex.adjuntos > 0 ? '\n\nSus archivos adjuntos se conservarán en la pestaña Archivos.' : ''}`)) return;
@@ -477,15 +514,16 @@ export class HistorialClinicoComponent {
   }
 
   private consultaVacia() {
-    return {
-      motivoConsulta: '',
-      sintomatologia: '',
-      observaciones: '',
-      idDoctor: null as number | null,
-      diagnosticos: [] as FilaDiagnostico[],
-      tratamientos: [] as FilaTratamiento[]
-    };
-  }
+     return {
+       motivoConsulta: '',
+       sintomatologia: '',
+       observaciones: '',
+       idDoctor: null as number | null,
+       idServicio: null as number | null,
+       diagnosticos: [] as FilaDiagnostico[],
+       tratamientos: [] as FilaTratamiento[]
+     };
+   }
 
   private diagnosticoVacio() {
     return {
@@ -497,8 +535,8 @@ export class HistorialClinicoComponent {
   }
 
   private examenVacio() {
-    return { idConsulta: null as number | null, nombreExamen: '', fechaExamen: this.hoy, resultado: '', observaciones: '' };
-  }
+     return { idConsulta: null as number | null, idServicio: null as number | null, nombreExamen: '', fechaExamen: this.hoy, resultado: '', observaciones: '' };
+   }
 
   private tratamientoVacio() {
     return {

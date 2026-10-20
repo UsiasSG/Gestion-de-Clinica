@@ -31,9 +31,13 @@ namespace ClinicaBackend.API.Data
         public DbSet<LoteMedicamento> LotesMedicamentos { get; set; } = null!;
         public DbSet<Venta> Ventas { get; set; } = null!;
         public DbSet<DetalleVenta> DetalleVentas { get; set; } = null!;
-        
+        public DbSet<ServicioClinico> ServiciosClinicos { get; set; } = null!;
+        public DbSet<CargoPaciente> CargosPaciente { get; set; } = null!;
+        public DbSet<FacturaPaciente> FacturasPaciente { get; set; } = null!;
         public DbSet<MovimientoInventario> MovimientosInventario { get; set; } = null!;
         public DbSet<ArchivoClinico> ArchivosClinicos { get; set; } = null!;
+        public DbSet<Hospitalizacion> Hospitalizaciones { get; set; } = null!;
+        public DbSet<Cirugia> Cirugias { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -42,6 +46,14 @@ namespace ClinicaBackend.API.Data
             // =================================================================
             // 1. MAPEOS DE PRECISIÓN DECIMAL PARA SQL SERVER (Evita Warnings)
             // =================================================================
+            modelBuilder.Entity<ServicioClinico>().Property(s => s.Precio).HasPrecision(18, 2);
+            modelBuilder.Entity<CargoPaciente>().Property(c => c.PrecioUnitario).HasPrecision(18, 2);
+            modelBuilder.Entity<CargoPaciente>().Property(c => c.Subtotal).HasPrecision(18, 2);
+            modelBuilder.Entity<FacturaPaciente>().Property(f => f.Subtotal).HasPrecision(18, 2);
+            modelBuilder.Entity<FacturaPaciente>().Property(f => f.Impuesto).HasPrecision(18, 2);
+            modelBuilder.Entity<FacturaPaciente>().Property(f => f.Total).HasPrecision(18, 2);
+            modelBuilder.Entity<FacturaPaciente>().Property(f => f.MontoRecibido).HasPrecision(18, 2);
+            modelBuilder.Entity<FacturaPaciente>().Property(f => f.Cambio).HasPrecision(18, 2);
             modelBuilder.Entity<DetalleVenta>().Property(d => d.PrecioUnitario).HasPrecision(18, 2);
             modelBuilder.Entity<DetalleVenta>().Property(d => d.Subtotal).HasPrecision(18, 2);
             modelBuilder.Entity<Medicamento>().Property(m => m.PrecioVenta).HasPrecision(18, 2);
@@ -49,6 +61,8 @@ namespace ClinicaBackend.API.Data
             modelBuilder.Entity<Venta>().Property(v => v.Subtotal).HasPrecision(18, 2);
             modelBuilder.Entity<Venta>().Property(v => v.Impuesto).HasPrecision(18, 2);
             modelBuilder.Entity<Venta>().Property(v => v.Total).HasPrecision(18, 2);
+            modelBuilder.Entity<Cirugia>().Property(c => c.CostoBase).HasPrecision(18, 2);
+            modelBuilder.Entity<Cirugia>().Property(c => c.CostoFinal).HasPrecision(18, 2);
 
             // =================================================================
             // 2. CONFIGURACIÓN DE RELACIONES Y CLAVES
@@ -65,6 +79,65 @@ namespace ClinicaBackend.API.Data
                 .WithMany()
                 .HasForeignKey(p => p.IdModulo);
 
+            // Facturación
+            modelBuilder.Entity<ServicioClinico>().HasIndex(s => s.Codigo).IsUnique();
+
+            modelBuilder.Entity<ConsultaMedica>()
+                .HasOne(c => c.Servicio).WithMany().HasForeignKey(c => c.IdServicio).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Examen>()
+                .HasOne(e => e.Servicio).WithMany().HasForeignKey(e => e.IdServicio).OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<CargoPaciente>()
+                .HasOne(c => c.Paciente).WithMany().HasForeignKey(c => c.IdPaciente).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CargoPaciente>()
+                .HasOne(c => c.Servicio).WithMany().HasForeignKey(c => c.IdServicio).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CargoPaciente>()
+                .HasOne(c => c.Consulta).WithMany().HasForeignKey(c => c.IdConsulta).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CargoPaciente>()
+                .HasOne(c => c.Examen).WithMany().HasForeignKey(c => c.IdExamen).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CargoPaciente>()
+                .HasOne(c => c.Usuario).WithMany().HasForeignKey(c => c.IdUsuario).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CargoPaciente>()
+                .HasOne(c => c.Factura).WithMany(f => f.Cargos).HasForeignKey(c => c.IdFactura).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CargoPaciente>()
+                .HasOne(c => c.Medicamento).WithMany().HasForeignKey(c => c.IdMedicamento).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<MovimientoInventario>()
+                .HasOne(m => m.Cargo).WithMany().HasForeignKey(m => m.IdCargo).OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<FacturaPaciente>()
+                .HasOne(f => f.Paciente).WithMany().HasForeignKey(f => f.IdPaciente).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<FacturaPaciente>()
+                .HasOne(f => f.Sucursal).WithMany().HasForeignKey(f => f.IdSucursal).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<FacturaPaciente>()
+                .HasOne(f => f.Usuario).WithMany().HasForeignKey(f => f.IdUsuario).OnDelete(DeleteBehavior.NoAction);
+
+            // Hospitalización y cirugías
+            modelBuilder.Entity<Hospitalizacion>()
+                .HasOne(h => h.Paciente).WithMany().HasForeignKey(h => h.IdPaciente).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Hospitalizacion>()
+                .HasOne(h => h.Sucursal).WithMany().HasForeignKey(h => h.IdSucursal).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Hospitalizacion>()
+                .HasOne(h => h.Diagnostico).WithMany().HasForeignKey(h => h.IdDiagnostico).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Hospitalizacion>()
+                .HasOne(h => h.MedicoResponsable).WithMany().HasForeignKey(h => h.IdMedicoResponsable).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Hospitalizacion>()
+                .HasOne(h => h.UsuarioRegistro).WithMany().HasForeignKey(h => h.IdUsuarioRegistro).OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Cirugia>()
+                .HasOne(c => c.Hospitalizacion).WithMany().HasForeignKey(c => c.IdHospitalizacion).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Cirugia>()
+                .HasOne(c => c.Servicio).WithMany().HasForeignKey(c => c.IdServicio).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Cirugia>()
+                .HasOne(c => c.Cirujano).WithMany().HasForeignKey(c => c.IdCirujano).OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<AsignacionHabitacion>()
+                .HasOne(a => a.Hospitalizacion).WithMany().HasForeignKey(a => a.IdHospitalizacion).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CargoPaciente>()
+                .HasOne(c => c.Hospitalizacion).WithMany().HasForeignKey(c => c.IdHospitalizacion).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<CargoPaciente>()
+                .HasOne(c => c.Cirugia).WithMany().HasForeignKey(c => c.IdCirugia).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<FacturaPaciente>()
+                .HasOne(f => f.Hospitalizacion).WithMany().HasForeignKey(f => f.IdHospitalizacion).OnDelete(DeleteBehavior.NoAction);
 
             // Usuarios
             modelBuilder.Entity<Usuario>()
@@ -297,7 +370,10 @@ namespace ClinicaBackend.API.Data
                 new Modulo { Id = 5, Nombre = "Habitaciones (SignalR)", Codigo = "HABITACIONES" },
                 new Modulo { Id = 6, Nombre = "Inventario de Medicamentos", Codigo = "INVENTARIO" },
                 new Modulo { Id = 7, Nombre = "Diagnósticos", Codigo = "DIAGNOSTICOS" },
-                new Modulo { Id = 8, Nombre = "Roles y Permisos", Codigo = "ROLES" }
+                new Modulo { Id = 8, Nombre = "Roles y Permisos", Codigo = "ROLES" },
+                new Modulo { Id = 9, Nombre = "Tarifario de Servicios", Codigo = "TARIFARIO" },
+                new Modulo { Id = 10, Nombre = "Caja y Cobros", Codigo = "COBROS" },
+                new Modulo { Id = 11, Nombre = "Hospitalización y Cirugías", Codigo = "HOSPITALIZACION" }
 
             );
 
@@ -314,7 +390,10 @@ namespace ClinicaBackend.API.Data
                 new Permiso { Id = 9, IdRol = 2, IdModulo = 2, PuedeConsultar = true, PuedeCrear = true, PuedeModificar = true, PuedeEliminar = false }, // Historial
                 new Permiso { Id = 10, IdRol = 2, IdModulo = 7, PuedeConsultar = true, PuedeCrear = true, PuedeModificar = false, PuedeEliminar = false }, // Diagnósticos
                 new Permiso { Id = 11, IdRol = 2, IdModulo = 5, PuedeConsultar = true, PuedeCrear = false, PuedeModificar = true, PuedeEliminar = false }, // Habitaciones
-                                                                                                                                           // Cajero
+                new Permiso { Id = 19, IdRol = 1, IdModulo = 9, PuedeConsultar = true, PuedeCrear = true, PuedeModificar = true, PuedeEliminar = true },  // Admin – Tarifario
+                new Permiso { Id = 20, IdRol = 1, IdModulo = 10, PuedeConsultar = true, PuedeCrear = true, PuedeModificar = true, PuedeEliminar = true },  // Admin – Cobros
+                new Permiso { Id = 21, IdRol = 3, IdModulo = 10, PuedeConsultar = true, PuedeCrear = true, PuedeModificar = false, PuedeEliminar = false }, // Cajero – Cobros
+                new Permiso { Id = 22, IdRol = 3, IdModulo = 9, PuedeConsultar = true, PuedeCrear = false, PuedeModificar = false, PuedeEliminar = false },  // Cajero – Tarifario (solo ver)                                                                                                                           // Cajero
                 new Permiso { Id = 12, IdRol = 3, IdModulo = 3, PuedeConsultar = true, PuedeCrear = true, PuedeModificar = true, PuedeEliminar = true },   // POS
                 new Permiso { Id = 13, IdRol = 3, IdModulo = 1, PuedeConsultar = true, PuedeCrear = false, PuedeModificar = false, PuedeEliminar = false }, // Pacientes
                 new Permiso { Id = 14, IdRol = 3, IdModulo = 6, PuedeConsultar = true, PuedeCrear = false, PuedeModificar = false, PuedeEliminar = false }, // Inventario
@@ -322,8 +401,30 @@ namespace ClinicaBackend.API.Data
                 new Permiso { Id = 15, IdRol = 4, IdModulo = 1, PuedeConsultar = true, PuedeCrear = false, PuedeModificar = false, PuedeEliminar = false }, // Pacientes
                 new Permiso { Id = 16, IdRol = 4, IdModulo = 2, PuedeConsultar = true, PuedeCrear = true, PuedeModificar = true, PuedeEliminar = false }, // Historial
                 new Permiso { Id = 17, IdRol = 4, IdModulo = 5, PuedeConsultar = true, PuedeCrear = false, PuedeModificar = true, PuedeEliminar = false },  // Habitaciones
-                new Permiso { Id = 18, IdRol = 1, IdModulo = 8, PuedeConsultar = true, PuedeCrear = true, PuedeModificar = true, PuedeEliminar = true }
+                new Permiso { Id = 18, IdRol = 1, IdModulo = 8, PuedeConsultar = true, PuedeCrear = true, PuedeModificar = true, PuedeEliminar = true },
+                new Permiso { Id = 23, IdRol = 1, IdModulo = 11, PuedeConsultar = true, PuedeCrear = true, PuedeModificar = true, PuedeEliminar = true },  // Admin
+                new Permiso { Id = 24, IdRol = 2, IdModulo = 11, PuedeConsultar = true, PuedeCrear = true, PuedeModificar = true, PuedeEliminar = false }, // Médico
+                new Permiso { Id = 25, IdRol = 4, IdModulo = 11, PuedeConsultar = true, PuedeCrear = false, PuedeModificar = true, PuedeEliminar = false }  // Enfermería (insumos)
 
+            );
+
+            // Tarifario inicial (precios sin IVA; el 12 % se agrega al cobrar)
+            modelBuilder.Entity<ServicioClinico>().HasData(
+                new ServicioClinico { Id = 1, Codigo = "CON-GEN", Nombre = "Consulta general", Tipo = "Consulta", Precio = 150m, Activo = true },
+                new ServicioClinico { Id = 2, Codigo = "CON-ESP", Nombre = "Consulta de especialidad", Tipo = "Consulta", Precio = 250m, Activo = true },
+                new ServicioClinico { Id = 3, Codigo = "CON-EMG", Nombre = "Consulta de emergencia", Tipo = "Consulta", Precio = 350m, Activo = true },
+                new ServicioClinico { Id = 4, Codigo = "EX-HEM", Nombre = "Hemograma completo", Tipo = "Examen", Precio = 75m, Activo = true },
+                new ServicioClinico { Id = 5, Codigo = "EX-QS", Nombre = "Química sanguínea", Tipo = "Examen", Precio = 120m, Activo = true },
+                new ServicioClinico { Id = 6, Codigo = "EX-ORI", Nombre = "Examen general de orina", Tipo = "Examen", Precio = 50m, Activo = true },
+                new ServicioClinico { Id = 7, Codigo = "EX-RXT", Nombre = "Radiografía de tórax", Tipo = "Examen", Precio = 200m, Activo = true },
+                new ServicioClinico { Id = 8, Codigo = "EX-USG", Nombre = "Ultrasonido abdominal", Tipo = "Examen", Precio = 350m, Activo = true },
+                new ServicioClinico { Id = 9, Codigo = "PRO-CUR", Nombre = "Curación de herida", Tipo = "Procedimiento", Precio = 100m, Activo = true },
+                new ServicioClinico { Id = 10, Codigo = "PRO-SUT", Nombre = "Sutura", Tipo = "Procedimiento", Precio = 175m, Activo = true },
+                new ServicioClinico { Id = 11, Codigo = "PRO-NEB", Nombre = "Nebulización", Tipo = "Procedimiento", Precio = 60m, Activo = true },
+                new ServicioClinico { Id = 12, Codigo = "CIR-APE", Nombre = "Apendicectomía", Tipo = "Cirugía", Precio = 8500m, Activo = true },
+                new ServicioClinico { Id = 13, Codigo = "CIR-COL", Nombre = "Colecistectomía laparoscópica", Tipo = "Cirugía", Precio = 12000m, Activo = true },
+                new ServicioClinico { Id = 14, Codigo = "CIR-HER", Nombre = "Hernioplastia", Tipo = "Cirugía", Precio = 7000m, Activo = true },
+                new ServicioClinico { Id = 15, Codigo = "CIR-CES", Nombre = "Cesárea", Tipo = "Cirugía", Precio = 9500m, Activo = true }
             );
 
             // Usuario Administrador Inicial

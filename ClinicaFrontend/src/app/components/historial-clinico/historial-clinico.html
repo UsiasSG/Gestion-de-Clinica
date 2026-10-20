@@ -29,6 +29,7 @@
         <button class="tab" [class.activa]="pestana() === 'tratamientos'" (click)="cambiarPestana('tratamientos')">Tratamientos ({{ h.tratamientos.length }})</button>
         <button class="tab" [class.activa]="pestana() === 'evolucion'" (click)="cambiarPestana('evolucion')">Evolución ({{ h.evolucion.length }})</button>
         <button class="tab" [class.activa]="pestana() === 'archivos'" (click)="cambiarPestana('archivos')">📎 Archivos ({{ h.archivos.length }})</button>
+        <button *ngIf="h.permisos.verCuenta" class="tab" [class.activa]="pestana() === 'cuenta'" (click)="cambiarPestana('cuenta')"> Cuenta</button>
       </div>
 
       <div class="cuerpo">
@@ -53,6 +54,14 @@
                 <option *ngFor="let m of h.medicos" [ngValue]="m.id">{{ m.nombre }}{{ m.especialidad ? ' · ' + m.especialidad : '' }}</option>
               </select>
               <small *ngIf="h.medicos.length === 0" style="color: #b45309;">No hay médicos registrados. Regístrelos en Gestión de Personal.</small>
+            </div>
+
+            <div class="campo" *ngIf="!enEdicion && h.serviciosConsulta.length">
+              <label>Tipo de consulta (cobro) *</label>
+              <select [(ngModel)]="formConsulta.idServicio" name="idServicioConsulta">
+                <option [ngValue]="null" disabled>Seleccione...</option>
+                <option *ngFor="let s of h.serviciosConsulta" [ngValue]="s.id">{{ s.nombre }} — Q{{ s.precio | number:'1.2-2' }}</option>
+              </select>
             </div>
 
             <div class="fila">
@@ -128,6 +137,13 @@
 
           <form *ngIf="formAbierto() === 'examen'" class="panel form" (ngSubmit)="guardarExamen()">
             <div class="titulo-form">{{ enEdicion ? '✏️ Editar examen' : 'Nuevo examen' }}</div>
+            <div class="campo" *ngIf="!enEdicion && h.serviciosExamen.length">
+              <label>Examen del tarifario (genera el cobro)</label>
+              <select [ngModel]="formExamen.idServicio" (ngModelChange)="onServicioExamen($event)" name="idServicioExamen">
+                <option [ngValue]="null">Otro examen (sin cobro automático)</option>
+                <option *ngFor="let s of h.serviciosExamen" [ngValue]="s.id">{{ s.nombre }} — Q{{ s.precio | number:'1.2-2' }}</option>
+              </select>
+            </div>
             <div class="fila">
               <div class="campo"><label>Examen *</label><input type="text" [(ngModel)]="formExamen.nombreExamen" name="nombreExamen" placeholder="Ej. Hemograma completo"></div>
               <div class="campo" style="flex: 0.5;"><label>Fecha *</label><input type="date" [(ngModel)]="formExamen.fechaExamen" name="fechaExamen" [max]="hoy"></div>
@@ -212,9 +228,26 @@
               Asignado por {{ d.doctor }} · {{ d.fechaDiagnostico | date:'dd/MM/yyyy HH:mm' }}
               <span *ngIf="d.motivoConsulta"> · Consulta: {{ d.motivoConsulta }}</span>
             </div>
-            <div class="acciones-reg" *ngIf="h.permisos.modificarDiagnostico || h.permisos.eliminarDiagnostico">
+            <div class="acciones-reg" *ngIf="h.permisos.modificarDiagnostico || h.permisos.eliminarDiagnostico || h.permisos.referir">
+              <button *ngIf="h.permisos.referir" class="link" (click)="abrirReferencia(d)">🏥 Referir a hospitalización</button>
               <button *ngIf="h.permisos.modificarDiagnostico" class="link" (click)="editarDiagnostico(d)">Editar</button>
               <button *ngIf="h.permisos.eliminarDiagnostico" class="link peligro" (click)="eliminarDiagnostico(d)">Eliminar</button>
+            </div>
+            <div *ngIf="referirDiagnosticoId === d.id" class="panel form" style="margin-top: 0.6rem;">
+              <div class="fila">
+                <div class="campo" style="flex: 0.5;">
+                  <label>Referir a *</label>
+                  <select [(ngModel)]="formReferencia.tipo">
+                    <option value="Vigilancia">Vigilancia</option>
+                    <option value="Cirugía">Cirugía</option>
+                  </select>
+                </div>
+                <div class="campo"><label>Motivo *</label><input type="text" [(ngModel)]="formReferencia.motivo"></div>
+              </div>
+              <div class="pie">
+                <button type="button" class="btn" (click)="referirDiagnosticoId = null">Cancelar</button>
+                <button type="button" class="btn btn-primario" [disabled]="procesando()" (click)="guardarReferencia()">Enviar solicitud</button>
+              </div>
             </div>
           </div>
           <div *ngIf="h.diagnosticos.length === 0" class="vacio">No se han registrado diagnósticos.</div>
@@ -400,7 +433,8 @@
           </div>
           <div *ngIf="h.archivos.length === 0" class="vacio">No hay archivos adjuntos para este paciente.</div>
         </ng-container>
-
+        <!-- ═══ CUENTA ═══ -->
+        <app-cuenta-paciente *ngIf="pestana() === 'cuenta'" [idPaciente]="idPaciente()" [nombrePaciente]="h.paciente.nombreCompleto" />
       </div>
     </ng-container>
   </div>

@@ -55,13 +55,13 @@
             <strong style="font-size: 0.875rem;">{{ o.pacienteNombre }}</strong>
             <small>Ingreso: {{ o.fechaIngreso | date:'dd/MM/yyyy HH:mm' }} · {{ diasEstancia(o.fechaIngreso) }} día(s)</small>
           </div>
-          <button class="btn-mini peligro" (click)="abrirEgreso(h, o)">Egreso</button>
+          
         </div>
         <div *ngIf="h.ocupantes.length === 0" class="vacia">Sin pacientes</div>
       </div>
 
       <div class="acciones-hab">
-        <button *ngIf="puedeAsignar(h)" class="btn btn-primario" (click)="abrirAsignar(h)">+ Asignar paciente</button>
+        <small *ngIf="h.estado === 'Disponible'" style="color: #64748b;">Asignación desde el módulo de Hospitalización.</small>
         <button *ngFor="let e of estadosManuales(h)" class="btn" (click)="cambiarEstado(h, e)">{{ etiquetaEstado(e) }}</button>
       </div>
 

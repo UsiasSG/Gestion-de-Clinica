@@ -115,6 +115,10 @@ namespace ClinicaBackend.API.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id_habitacion");
 
+                    b.Property<int?>("IdHospitalizacion")
+                        .HasColumnType("int")
+                        .HasColumnName("id_hospitalizacion");
+
                     b.Property<int?>("IdPaciente")
                         .HasColumnType("int")
                         .HasColumnName("id_paciente");
@@ -127,9 +131,115 @@ namespace ClinicaBackend.API.Migrations
 
                     b.HasIndex("IdHabitacion");
 
+                    b.HasIndex("IdHospitalizacion");
+
                     b.HasIndex("IdPaciente");
 
                     b.ToTable("AsignacionHabitaciones");
+                });
+
+            modelBuilder.Entity("ClinicaBackend.API.Models.CargoPaciente", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Cantidad")
+                        .HasColumnType("int")
+                        .HasColumnName("cantidad");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)")
+                        .HasColumnName("descripcion");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha");
+
+                    b.Property<int?>("IdCirugia")
+                        .HasColumnType("int")
+                        .HasColumnName("id_cirugia");
+
+                    b.Property<int?>("IdConsulta")
+                        .HasColumnType("int")
+                        .HasColumnName("id_consulta");
+
+                    b.Property<int?>("IdExamen")
+                        .HasColumnType("int")
+                        .HasColumnName("id_examen");
+
+                    b.Property<int?>("IdFactura")
+                        .HasColumnType("int")
+                        .HasColumnName("id_factura");
+
+                    b.Property<int?>("IdHospitalizacion")
+                        .HasColumnType("int")
+                        .HasColumnName("id_hospitalizacion");
+
+                    b.Property<int?>("IdMedicamento")
+                        .HasColumnType("int")
+                        .HasColumnName("id_medicamento");
+
+                    b.Property<int>("IdPaciente")
+                        .HasColumnType("int")
+                        .HasColumnName("id_paciente");
+
+                    b.Property<int?>("IdServicio")
+                        .HasColumnType("int")
+                        .HasColumnName("id_servicio");
+
+                    b.Property<int?>("IdUsuario")
+                        .HasColumnType("int")
+                        .HasColumnName("id_usuario");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("precio_unitario");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("subtotal");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdCirugia");
+
+                    b.HasIndex("IdConsulta");
+
+                    b.HasIndex("IdExamen");
+
+                    b.HasIndex("IdFactura");
+
+                    b.HasIndex("IdHospitalizacion");
+
+                    b.HasIndex("IdMedicamento");
+
+                    b.HasIndex("IdPaciente");
+
+                    b.HasIndex("IdServicio");
+
+                    b.HasIndex("IdUsuario");
+
+                    b.ToTable("CargosPaciente");
                 });
 
             modelBuilder.Entity("ClinicaBackend.API.Models.CategoriaMedicamento", b =>
@@ -149,6 +259,73 @@ namespace ClinicaBackend.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("CategoriasMedicamentos");
+                });
+
+            modelBuilder.Entity("ClinicaBackend.API.Models.Cirugia", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("CostoBase")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("costo_base");
+
+                    b.Property<decimal>("CostoFinal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("costo_final");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTime>("FechaProgramada")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha_programada");
+
+                    b.Property<DateTime?>("FechaRealizada")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha_realizada");
+
+                    b.Property<int?>("IdCirujano")
+                        .HasColumnType("int")
+                        .HasColumnName("id_cirujano");
+
+                    b.Property<int>("IdHospitalizacion")
+                        .HasColumnType("int")
+                        .HasColumnName("id_hospitalizacion");
+
+                    b.Property<int?>("IdServicio")
+                        .HasColumnType("int")
+                        .HasColumnName("id_servicio");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("observaciones");
+
+                    b.Property<string>("Procedimiento")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)")
+                        .HasColumnName("procedimiento");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdCirujano");
+
+                    b.HasIndex("IdHospitalizacion");
+
+                    b.HasIndex("IdServicio");
+
+                    b.ToTable("Cirugias");
                 });
 
             modelBuilder.Entity("ClinicaBackend.API.Models.ConsultaMedica", b =>
@@ -172,6 +349,10 @@ namespace ClinicaBackend.API.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id_paciente");
 
+                    b.Property<int?>("IdServicio")
+                        .HasColumnType("int")
+                        .HasColumnName("id_servicio");
+
                     b.Property<int?>("IdSucursal")
                         .HasColumnType("int")
                         .HasColumnName("id_sucursal");
@@ -193,6 +374,8 @@ namespace ClinicaBackend.API.Migrations
                     b.HasIndex("IdDoctor");
 
                     b.HasIndex("IdPaciente");
+
+                    b.HasIndex("IdServicio");
 
                     b.HasIndex("IdSucursal");
 
@@ -439,6 +622,10 @@ namespace ClinicaBackend.API.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id_paciente");
 
+                    b.Property<int?>("IdServicio")
+                        .HasColumnType("int")
+                        .HasColumnName("id_servicio");
+
                     b.Property<string>("NombreExamen")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
@@ -458,7 +645,116 @@ namespace ClinicaBackend.API.Migrations
 
                     b.HasIndex("IdPaciente");
 
+                    b.HasIndex("IdServicio");
+
                     b.ToTable("Examenes");
+                });
+
+            modelBuilder.Entity("ClinicaBackend.API.Models.FacturaPaciente", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("Cambio")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("cambio");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha");
+
+                    b.Property<int?>("IdHospitalizacion")
+                        .HasColumnType("int")
+                        .HasColumnName("id_hospitalizacion");
+
+                    b.Property<int>("IdPaciente")
+                        .HasColumnType("int")
+                        .HasColumnName("id_paciente");
+
+                    b.Property<int?>("IdSucursal")
+                        .HasColumnType("int")
+                        .HasColumnName("id_sucursal");
+
+                    b.Property<int?>("IdUsuario")
+                        .HasColumnType("int")
+                        .HasColumnName("id_usuario");
+
+                    b.Property<decimal>("Impuesto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("impuesto");
+
+                    b.Property<string>("MetodoPago")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("metodo_pago");
+
+                    b.Property<decimal?>("MontoRecibido")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("monto_recibido");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)")
+                        .HasColumnName("motivo_anulacion");
+
+                    b.Property<string>("Nit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("nit");
+
+                    b.Property<string>("NombreFactura")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)")
+                        .HasColumnName("nombre_factura");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)")
+                        .HasColumnName("referencia");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("subtotal");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("tipo");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("total");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdHospitalizacion");
+
+                    b.HasIndex("IdPaciente");
+
+                    b.HasIndex("IdSucursal");
+
+                    b.HasIndex("IdUsuario");
+
+                    b.ToTable("FacturasPaciente");
                 });
 
             modelBuilder.Entity("ClinicaBackend.API.Models.Habitacion", b =>
@@ -501,6 +797,85 @@ namespace ClinicaBackend.API.Migrations
                     b.HasIndex("IdSucursal");
 
                     b.ToTable("Habitaciones");
+                });
+
+            modelBuilder.Entity("ClinicaBackend.API.Models.Hospitalizacion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTime?>("FechaAlta")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha_alta");
+
+                    b.Property<DateTime?>("FechaIngreso")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha_ingreso");
+
+                    b.Property<DateTime>("FechaSolicitud")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha_solicitud");
+
+                    b.Property<int?>("IdDiagnostico")
+                        .HasColumnType("int")
+                        .HasColumnName("id_diagnostico");
+
+                    b.Property<int?>("IdMedicoResponsable")
+                        .HasColumnType("int")
+                        .HasColumnName("id_medico_responsable");
+
+                    b.Property<int>("IdPaciente")
+                        .HasColumnType("int")
+                        .HasColumnName("id_paciente");
+
+                    b.Property<int?>("IdSucursal")
+                        .HasColumnType("int")
+                        .HasColumnName("id_sucursal");
+
+                    b.Property<int?>("IdUsuarioRegistro")
+                        .HasColumnType("int")
+                        .HasColumnName("id_usuario_registro");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("motivo");
+
+                    b.Property<string>("ObservacionesAlta")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("observaciones_alta");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdDiagnostico");
+
+                    b.HasIndex("IdMedicoResponsable");
+
+                    b.HasIndex("IdPaciente");
+
+                    b.HasIndex("IdSucursal");
+
+                    b.HasIndex("IdUsuarioRegistro");
+
+                    b.ToTable("Hospitalizaciones");
                 });
 
             modelBuilder.Entity("ClinicaBackend.API.Models.LoteMedicamento", b =>
@@ -684,6 +1059,24 @@ namespace ClinicaBackend.API.Migrations
                             Id = 8,
                             Codigo = "ROLES",
                             Nombre = "Roles y Permisos"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            Codigo = "TARIFARIO",
+                            Nombre = "Tarifario de Servicios"
+                        },
+                        new
+                        {
+                            Id = 10,
+                            Codigo = "COBROS",
+                            Nombre = "Caja y Cobros"
+                        },
+                        new
+                        {
+                            Id = 11,
+                            Codigo = "HOSPITALIZACION",
+                            Nombre = "Hospitalización y Cirugías"
                         });
                 });
 
@@ -703,6 +1096,10 @@ namespace ClinicaBackend.API.Migrations
                     b.Property<DateTime>("Fecha")
                         .HasColumnType("datetime2")
                         .HasColumnName("fecha");
+
+                    b.Property<int?>("IdCargo")
+                        .HasColumnType("int")
+                        .HasColumnName("id_cargo");
 
                     b.Property<int>("IdLote")
                         .HasColumnType("int")
@@ -730,6 +1127,8 @@ namespace ClinicaBackend.API.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Fecha");
+
+                    b.HasIndex("IdCargo");
 
                     b.HasIndex("IdLote");
 
@@ -969,6 +1368,46 @@ namespace ClinicaBackend.API.Migrations
                         },
                         new
                         {
+                            Id = 19,
+                            IdModulo = 9,
+                            IdRol = 1,
+                            PuedeConsultar = true,
+                            PuedeCrear = true,
+                            PuedeEliminar = true,
+                            PuedeModificar = true
+                        },
+                        new
+                        {
+                            Id = 20,
+                            IdModulo = 10,
+                            IdRol = 1,
+                            PuedeConsultar = true,
+                            PuedeCrear = true,
+                            PuedeEliminar = true,
+                            PuedeModificar = true
+                        },
+                        new
+                        {
+                            Id = 21,
+                            IdModulo = 10,
+                            IdRol = 3,
+                            PuedeConsultar = true,
+                            PuedeCrear = true,
+                            PuedeEliminar = false,
+                            PuedeModificar = false
+                        },
+                        new
+                        {
+                            Id = 22,
+                            IdModulo = 9,
+                            IdRol = 3,
+                            PuedeConsultar = true,
+                            PuedeCrear = false,
+                            PuedeEliminar = false,
+                            PuedeModificar = false
+                        },
+                        new
+                        {
                             Id = 12,
                             IdModulo = 3,
                             IdRol = 3,
@@ -1036,6 +1475,36 @@ namespace ClinicaBackend.API.Migrations
                             PuedeCrear = true,
                             PuedeEliminar = true,
                             PuedeModificar = true
+                        },
+                        new
+                        {
+                            Id = 23,
+                            IdModulo = 11,
+                            IdRol = 1,
+                            PuedeConsultar = true,
+                            PuedeCrear = true,
+                            PuedeEliminar = true,
+                            PuedeModificar = true
+                        },
+                        new
+                        {
+                            Id = 24,
+                            IdModulo = 11,
+                            IdRol = 2,
+                            PuedeConsultar = true,
+                            PuedeCrear = true,
+                            PuedeEliminar = false,
+                            PuedeModificar = true
+                        },
+                        new
+                        {
+                            Id = 25,
+                            IdModulo = 11,
+                            IdRol = 4,
+                            PuedeConsultar = true,
+                            PuedeCrear = false,
+                            PuedeEliminar = false,
+                            PuedeModificar = true
                         });
                 });
 
@@ -1090,6 +1559,192 @@ namespace ClinicaBackend.API.Migrations
                         {
                             Id = 8,
                             Nombre = "Roles y Permisos"
+                        });
+                });
+
+            modelBuilder.Entity("ClinicaBackend.API.Models.ServicioClinico", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit")
+                        .HasColumnName("activo");
+
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasColumnName("codigo");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)")
+                        .HasColumnName("descripcion");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)")
+                        .HasColumnName("nombre");
+
+                    b.Property<decimal>("Precio")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("precio");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique()
+                        .HasFilter("[codigo] IS NOT NULL");
+
+                    b.ToTable("ServiciosClinicos");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Activo = true,
+                            Codigo = "CON-GEN",
+                            Nombre = "Consulta general",
+                            Precio = 150m,
+                            Tipo = "Consulta"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Activo = true,
+                            Codigo = "CON-ESP",
+                            Nombre = "Consulta de especialidad",
+                            Precio = 250m,
+                            Tipo = "Consulta"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Activo = true,
+                            Codigo = "CON-EMG",
+                            Nombre = "Consulta de emergencia",
+                            Precio = 350m,
+                            Tipo = "Consulta"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Activo = true,
+                            Codigo = "EX-HEM",
+                            Nombre = "Hemograma completo",
+                            Precio = 75m,
+                            Tipo = "Examen"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Activo = true,
+                            Codigo = "EX-QS",
+                            Nombre = "Química sanguínea",
+                            Precio = 120m,
+                            Tipo = "Examen"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Activo = true,
+                            Codigo = "EX-ORI",
+                            Nombre = "Examen general de orina",
+                            Precio = 50m,
+                            Tipo = "Examen"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Activo = true,
+                            Codigo = "EX-RXT",
+                            Nombre = "Radiografía de tórax",
+                            Precio = 200m,
+                            Tipo = "Examen"
+                        },
+                        new
+                        {
+                            Id = 8,
+                            Activo = true,
+                            Codigo = "EX-USG",
+                            Nombre = "Ultrasonido abdominal",
+                            Precio = 350m,
+                            Tipo = "Examen"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            Activo = true,
+                            Codigo = "PRO-CUR",
+                            Nombre = "Curación de herida",
+                            Precio = 100m,
+                            Tipo = "Procedimiento"
+                        },
+                        new
+                        {
+                            Id = 10,
+                            Activo = true,
+                            Codigo = "PRO-SUT",
+                            Nombre = "Sutura",
+                            Precio = 175m,
+                            Tipo = "Procedimiento"
+                        },
+                        new
+                        {
+                            Id = 11,
+                            Activo = true,
+                            Codigo = "PRO-NEB",
+                            Nombre = "Nebulización",
+                            Precio = 60m,
+                            Tipo = "Procedimiento"
+                        },
+                        new
+                        {
+                            Id = 12,
+                            Activo = true,
+                            Codigo = "CIR-APE",
+                            Nombre = "Apendicectomía",
+                            Precio = 8500m,
+                            Tipo = "Cirugía"
+                        },
+                        new
+                        {
+                            Id = 13,
+                            Activo = true,
+                            Codigo = "CIR-COL",
+                            Nombre = "Colecistectomía laparoscópica",
+                            Precio = 12000m,
+                            Tipo = "Cirugía"
+                        },
+                        new
+                        {
+                            Id = 14,
+                            Activo = true,
+                            Codigo = "CIR-HER",
+                            Nombre = "Hernioplastia",
+                            Precio = 7000m,
+                            Tipo = "Cirugía"
+                        },
+                        new
+                        {
+                            Id = 15,
+                            Activo = true,
+                            Codigo = "CIR-CES",
+                            Nombre = "Cesárea",
+                            Precio = 9500m,
+                            Tipo = "Cirugía"
                         });
                 });
 
@@ -1351,13 +2006,112 @@ namespace ClinicaBackend.API.Migrations
                         .WithMany()
                         .HasForeignKey("IdHabitacion");
 
+                    b.HasOne("ClinicaBackend.API.Models.Hospitalizacion", "Hospitalizacion")
+                        .WithMany()
+                        .HasForeignKey("IdHospitalizacion")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("ClinicaBackend.API.Models.Paciente", "Paciente")
                         .WithMany()
                         .HasForeignKey("IdPaciente");
 
                     b.Navigation("Habitacion");
 
+                    b.Navigation("Hospitalizacion");
+
                     b.Navigation("Paciente");
+                });
+
+            modelBuilder.Entity("ClinicaBackend.API.Models.CargoPaciente", b =>
+                {
+                    b.HasOne("ClinicaBackend.API.Models.Cirugia", "Cirugia")
+                        .WithMany()
+                        .HasForeignKey("IdCirugia")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.ConsultaMedica", "Consulta")
+                        .WithMany()
+                        .HasForeignKey("IdConsulta")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Examen", "Examen")
+                        .WithMany()
+                        .HasForeignKey("IdExamen")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.FacturaPaciente", "Factura")
+                        .WithMany("Cargos")
+                        .HasForeignKey("IdFactura")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Hospitalizacion", "Hospitalizacion")
+                        .WithMany()
+                        .HasForeignKey("IdHospitalizacion")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Medicamento", "Medicamento")
+                        .WithMany()
+                        .HasForeignKey("IdMedicamento")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Paciente", "Paciente")
+                        .WithMany()
+                        .HasForeignKey("IdPaciente")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("ClinicaBackend.API.Models.ServicioClinico", "Servicio")
+                        .WithMany()
+                        .HasForeignKey("IdServicio")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("IdUsuario")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Cirugia");
+
+                    b.Navigation("Consulta");
+
+                    b.Navigation("Examen");
+
+                    b.Navigation("Factura");
+
+                    b.Navigation("Hospitalizacion");
+
+                    b.Navigation("Medicamento");
+
+                    b.Navigation("Paciente");
+
+                    b.Navigation("Servicio");
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("ClinicaBackend.API.Models.Cirugia", b =>
+                {
+                    b.HasOne("ClinicaBackend.API.Models.Empleado", "Cirujano")
+                        .WithMany()
+                        .HasForeignKey("IdCirujano")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Hospitalizacion", "Hospitalizacion")
+                        .WithMany()
+                        .HasForeignKey("IdHospitalizacion")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("ClinicaBackend.API.Models.ServicioClinico", "Servicio")
+                        .WithMany()
+                        .HasForeignKey("IdServicio")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Cirujano");
+
+                    b.Navigation("Hospitalizacion");
+
+                    b.Navigation("Servicio");
                 });
 
             modelBuilder.Entity("ClinicaBackend.API.Models.ConsultaMedica", b =>
@@ -1370,6 +2124,11 @@ namespace ClinicaBackend.API.Migrations
                         .WithMany()
                         .HasForeignKey("IdPaciente");
 
+                    b.HasOne("ClinicaBackend.API.Models.ServicioClinico", "Servicio")
+                        .WithMany()
+                        .HasForeignKey("IdServicio")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("ClinicaBackend.API.Models.Sucursal", "Sucursal")
                         .WithMany()
                         .HasForeignKey("IdSucursal");
@@ -1377,6 +2136,8 @@ namespace ClinicaBackend.API.Migrations
                     b.Navigation("Doctor");
 
                     b.Navigation("Paciente");
+
+                    b.Navigation("Servicio");
 
                     b.Navigation("Sucursal");
                 });
@@ -1457,9 +2218,48 @@ namespace ClinicaBackend.API.Migrations
                         .WithMany()
                         .HasForeignKey("IdPaciente");
 
+                    b.HasOne("ClinicaBackend.API.Models.ServicioClinico", "Servicio")
+                        .WithMany()
+                        .HasForeignKey("IdServicio")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.Navigation("Consulta");
 
                     b.Navigation("Paciente");
+
+                    b.Navigation("Servicio");
+                });
+
+            modelBuilder.Entity("ClinicaBackend.API.Models.FacturaPaciente", b =>
+                {
+                    b.HasOne("ClinicaBackend.API.Models.Hospitalizacion", "Hospitalizacion")
+                        .WithMany()
+                        .HasForeignKey("IdHospitalizacion")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Paciente", "Paciente")
+                        .WithMany()
+                        .HasForeignKey("IdPaciente")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("ClinicaBackend.API.Models.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("IdSucursal")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("IdUsuario")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Hospitalizacion");
+
+                    b.Navigation("Paciente");
+
+                    b.Navigation("Sucursal");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("ClinicaBackend.API.Models.Habitacion", b =>
@@ -1469,6 +2269,45 @@ namespace ClinicaBackend.API.Migrations
                         .HasForeignKey("IdSucursal");
 
                     b.Navigation("Sucursal");
+                });
+
+            modelBuilder.Entity("ClinicaBackend.API.Models.Hospitalizacion", b =>
+                {
+                    b.HasOne("ClinicaBackend.API.Models.Diagnostico", "Diagnostico")
+                        .WithMany()
+                        .HasForeignKey("IdDiagnostico")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Empleado", "MedicoResponsable")
+                        .WithMany()
+                        .HasForeignKey("IdMedicoResponsable")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Paciente", "Paciente")
+                        .WithMany()
+                        .HasForeignKey("IdPaciente")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("ClinicaBackend.API.Models.Sucursal", "Sucursal")
+                        .WithMany()
+                        .HasForeignKey("IdSucursal")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Usuario", "UsuarioRegistro")
+                        .WithMany()
+                        .HasForeignKey("IdUsuarioRegistro")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Diagnostico");
+
+                    b.Navigation("MedicoResponsable");
+
+                    b.Navigation("Paciente");
+
+                    b.Navigation("Sucursal");
+
+                    b.Navigation("UsuarioRegistro");
                 });
 
             modelBuilder.Entity("ClinicaBackend.API.Models.LoteMedicamento", b =>
@@ -1497,6 +2336,11 @@ namespace ClinicaBackend.API.Migrations
 
             modelBuilder.Entity("ClinicaBackend.API.Models.MovimientoInventario", b =>
                 {
+                    b.HasOne("ClinicaBackend.API.Models.CargoPaciente", "Cargo")
+                        .WithMany()
+                        .HasForeignKey("IdCargo")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("ClinicaBackend.API.Models.LoteMedicamento", "Lote")
                         .WithMany()
                         .HasForeignKey("IdLote")
@@ -1512,6 +2356,8 @@ namespace ClinicaBackend.API.Migrations
                         .WithMany()
                         .HasForeignKey("IdVenta")
                         .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Cargo");
 
                     b.Navigation("Lote");
 
@@ -1599,6 +2445,11 @@ namespace ClinicaBackend.API.Migrations
                     b.Navigation("Sucursal");
 
                     b.Navigation("UsuarioVendedor");
+                });
+
+            modelBuilder.Entity("ClinicaBackend.API.Models.FacturaPaciente", b =>
+                {
+                    b.Navigation("Cargos");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,0 +1,286 @@
+<div style="padding: 2rem;">
+
+  <div class="cab">
+    <div>
+      <h2 style="font-size: 1.75rem; font-weight: 800; color: #0f172a; margin: 0;">Hospitalización y Cirugías</h2>
+      <p style="color: #64748b; margin-top: 0.25rem;">Ingresos, insumos, cirugías, alta y cobro único de pacientes internados.</p>
+    </div>
+    <button *ngIf="permisos.puede('HOSPITALIZACION', 'crear')" class="btn btn-primario" (click)="abrirNueva()">+ Nueva hospitalización</button>
+  </div>
+
+  <div class="chips">
+    <button class="chip" [class.activo]="vista() === 'Solicitada'" (click)="vista.set('Solicitada')">⏳ Solicitadas ({{ contar('Solicitada') }})</button>
+    <button class="chip" [class.activo]="vista() === 'Activa'" (click)="vista.set('Activa')">🛏️ Internados ({{ contar('Activa') }})</button>
+    <button class="chip" [class.activo]="vista() === 'Recientes'" (click)="vista.set('Recientes')">✓ Altas recientes ({{ contar('Recientes') }})</button>
+  </div>
+
+  <div class="contenedor">
+
+    <!-- Lista -->
+    <aside class="lista">
+      <button *ngFor="let h of filtrada()" class="item" [class.activo]="idSeleccionado() === h.id" (click)="seleccionar(h)">
+        <div style="display: flex; justify-content: space-between; gap: 0.5rem;">
+          <strong>{{ h.paciente }}</strong>
+          <span class="badge" [ngClass]="claseEstado(h.estado)">{{ h.estado }}</span>
+        </div>
+        <small>{{ h.tipo }} · {{ h.motivo }}</small>
+        <small *ngIf="h.habitacion">🛏️ Hab. {{ h.habitacion }} · {{ diasDesde(h.fechaIngreso) }} día(s)</small>
+        <small *ngIf="h.medico">👨‍⚕️ {{ h.medico }}</small>
+        <small *ngIf="h.cargosPendientes > 0" style="color: #b45309; font-weight: 700;">Cargos: Q{{ h.cargosPendientes | number:'1.2-2' }}</small>
+      </button>
+      <div *ngIf="filtrada().length === 0" class="vacio">No hay registros en esta vista.</div>
+    </aside>
+
+    <!-- Detalle -->
+    <section class="detalle" *ngIf="idSeleccionado(); else sinSeleccion">
+      <div *ngIf="cargandoDetalle() && !detalle()" class="vacio">Cargando...</div>
+
+      <ng-container *ngIf="detalle() as d">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+          <div>
+            <h3 style="margin: 0;">{{ d.hospitalizacion.paciente }}</h3>
+            <div class="info">
+              <span><span class="badge" [ngClass]="claseEstado(d.hospitalizacion.estado)">{{ d.hospitalizacion.estado }}</span></span>
+              <span>📋 {{ d.hospitalizacion.tipo }}: {{ d.hospitalizacion.motivo }}</span>
+              <span *ngIf="d.hospitalizacion.medico">👨‍⚕️ {{ d.hospitalizacion.medico }}</span>
+              <span *ngIf="d.hospitalizacion.diagnostico">🩺 {{ d.hospitalizacion.diagnostico }}</span>
+              <span>⚠️ Alergias: <strong style="color: #e11d48;">{{ d.hospitalizacion.alergias || 'Ninguna' }}</strong></span>
+              <span *ngIf="d.asignacion">🛏️ Hab. {{ d.asignacion.numero }} ({{ d.asignacion.tipo }}) · Q{{ (d.asignacion.precioDiario ?? 0) | number:'1.2-2' }}/día</span>
+              <span *ngIf="d.hospitalizacion.fechaIngreso">Ingreso: {{ d.hospitalizacion.fechaIngreso | date:'dd/MM/yyyy HH:mm' }}</span>
+              <span *ngIf="d.hospitalizacion.fechaAlta">Alta: {{ d.hospitalizacion.fechaAlta | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ SOLICITADA: ingreso ═══ -->
+        <ng-container *ngIf="d.hospitalizacion.estado === 'Solicitada'">
+          <div class="panel" *ngIf="permisos.puede('HOSPITALIZACION', 'modificar')">
+            <h4>Ingreso: asignar habitación</h4>
+            <div class="fila">
+              <div class="campo">
+                <label>Habitación disponible *</label>
+                <select [(ngModel)]="formIngreso.idHabitacion">
+                  <option [ngValue]="null" disabled>Seleccione...</option>
+                  <option *ngFor="let h of catalogos()?.habitaciones" [ngValue]="h.id">
+                    {{ h.numeroHabitacion }} · {{ h.tipoHabitacion }} · Q{{ (h.precioDiario ?? 0) | number:'1.2-2' }}/día ({{ h.ocupantes }}/{{ h.capacidad }})
+                  </option>
+                </select>
+                <small *ngIf="(catalogos()?.habitaciones?.length ?? 0) === 0" style="color: #b45309;">No hay habitaciones disponibles en su sucursal.</small>
+              </div>
+              <div class="campo" style="max-width: 220px;">
+                <label>Fecha y hora de ingreso *</label>
+                <input type="datetime-local" [(ngModel)]="formIngreso.fechaIngreso" [max]="ahora">
+              </div>
+            </div>
+            <div style="display: flex; gap: 0.6rem;">
+              <button class="btn btn-primario" [disabled]="procesando()" (click)="ingresar()">Ingresar paciente</button>
+              <button *ngIf="permisos.puede('HOSPITALIZACION', 'eliminar')" class="btn peligro" (click)="cancelarSolicitud()">Cancelar solicitud</button>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- ═══ ACTIVA ═══ -->
+        <ng-container *ngIf="d.hospitalizacion.estado === 'Activa'">
+          <div class="totales">
+            <div class="tot"><span>Días de estancia</span><strong>{{ d.estancia.dias }}</strong></div>
+            <div class="tot"><span>Habitación (estimado)</span><strong>Q{{ d.estancia.costoHabitacion | number:'1.2-2' }}</strong></div>
+            <div class="tot"><span>Insumos y servicios</span><strong>Q{{ d.estancia.subtotalCargos | number:'1.2-2' }}</strong></div>
+            <div class="tot"><span>Total estimado + IVA</span><strong style="color: #0284c7;">Q{{ (d.estancia.totalEstimado + d.estancia.ivaEstimado) | number:'1.2-2' }}</strong></div>
+          </div>
+
+          <div class="tabs">
+            <button class="tab" [class.activa]="seccion() === 'cargos'" (click)="seccion.set('cargos')">Insumos y servicios ({{ d.cargos.length }})</button>
+            <button class="tab" [class.activa]="seccion() === 'cirugias'" (click)="seccion.set('cirugias')">Cirugías ({{ d.cirugias.length }})</button>
+            <button class="tab" [class.activa]="seccion() === 'alta'" (click)="seccion.set('alta')">Alta</button>
+          </div>
+
+          <!-- Insumos y servicios -->
+          <ng-container *ngIf="seccion() === 'cargos'">
+            <ng-container *ngIf="permisos.puede('HOSPITALIZACION', 'modificar')">
+              <div class="panel">
+                <h4>💉 Registrar insumo o medicamento (descuenta inventario)</h4>
+                <div class="fila">
+                  <div class="campo"><label>Buscar</label><input type="text" [(ngModel)]="busquedaInsumo" placeholder="Suero, intravenosa, antibiótico..."></div>
+                </div>
+                <div class="fila">
+                  <div class="campo" style="flex: 2;">
+                    <label>Insumo *</label>
+                    <select [(ngModel)]="formInsumo.idMedicamento">
+                      <option [ngValue]="null" disabled>Seleccione...</option>
+                      <option *ngFor="let m of insumosFiltrados" [ngValue]="m.id">{{ m.nombre }}{{ m.marca ? ' · ' + m.marca : '' }} — Q{{ m.precio | number:'1.2-2' }} ({{ m.existencia }} disp.)</option>
+                    </select>
+                  </div>
+                  <div class="campo" style="max-width: 110px;"><label>Cantidad *</label><input type="number" min="1" step="1" [(ngModel)]="formInsumo.cantidad"></div>
+                  <div class="campo"><label>Observación</label><input type="text" [(ngModel)]="formInsumo.observacion" placeholder="Ej. Dosis nocturna"></div>
+                </div>
+                <button class="btn btn-primario" [disabled]="procesando()" (click)="registrarInsumo()">Registrar insumo</button>
+              </div>
+
+              <div class="panel">
+                <h4>🩺 Registrar servicio (examen, procedimiento u otro)</h4>
+                <div class="fila">
+                  <div class="campo" style="flex: 2;">
+                    <label>Servicio del tarifario</label>
+                    <select [ngModel]="formServicio.idServicio" (ngModelChange)="onServicio($event)">
+                      <option [ngValue]="null">Otro (escribir descripción)</option>
+                      <option *ngFor="let s of catalogos()?.servicios" [ngValue]="s.id">{{ s.tipo }} · {{ s.nombre }} — Q{{ s.precio | number:'1.2-2' }}</option>
+                    </select>
+                  </div>
+                  <div class="campo" *ngIf="formServicio.idServicio == null" style="flex: 2;"><label>Descripción *</label><input type="text" [(ngModel)]="formServicio.descripcion"></div>
+                  <div class="campo" style="max-width: 100px;"><label>Cantidad</label><input type="number" min="1" [(ngModel)]="formServicio.cantidad"></div>
+                  <div class="campo" style="max-width: 130px;"><label>Precio (Q)</label><input type="number" min="0" step="0.01" [(ngModel)]="formServicio.precioUnitario"></div>
+                </div>
+                <button class="btn btn-primario" [disabled]="procesando()" (click)="registrarServicio()">Registrar servicio</button>
+              </div>
+            </ng-container>
+
+            <table class="tabla" *ngIf="d.cargos.length; else sinCargos">
+              <thead><tr><th>FECHA</th><th>CONCEPTO</th><th>TIPO</th><th class="der">CANT.</th><th class="der">SUBTOTAL</th><th>ESTADO</th><th></th></tr></thead>
+              <tbody>
+                <tr *ngFor="let c of d.cargos" [style.opacity]="c.estado === 'Anulado' ? 0.5 : 1">
+                  <td style="white-space: nowrap;">{{ c.fecha | date:'dd/MM HH:mm' }}</td>
+                  <td>{{ c.descripcion }}</td>
+                  <td><span class="badge b-azul">{{ c.tipo }}</span></td>
+                  <td class="der">{{ c.cantidad }}</td>
+                  <td class="der" style="font-weight: 700;">Q{{ c.subtotal | number:'1.2-2' }}</td>
+                  <td><span class="badge" [ngClass]="claseEstado(c.estado)">{{ c.estado }}</span></td>
+                  <td><button *ngIf="c.estado === 'Pendiente' && permisos.puede('COBROS', 'eliminar')" class="link peligro" (click)="anularCargo(c)">Anular</button></td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #sinCargos><div class="vacio">Aún no hay insumos ni servicios registrados.</div></ng-template>
+          </ng-container>
+
+          <!-- Cirugías -->
+          <ng-container *ngIf="seccion() === 'cirugias'">
+            <div class="panel" *ngIf="permisos.puede('HOSPITALIZACION', 'modificar')">
+              <h4>{{ editandoCirugiaId ? '✏️ Ajustar cirugía programada' : '🔪 Programar cirugía' }}</h4>
+              <div class="fila">
+                <div class="campo" style="flex: 2;" *ngIf="!editandoCirugiaId">
+                  <label>Cirugía (tarifario) *</label>
+                  <select [ngModel]="formCirugia.idServicio" (ngModelChange)="onCirugia($event)">
+                    <option [ngValue]="null" disabled>Seleccione...</option>
+                    <option *ngFor="let c of catalogos()?.cirugias" [ngValue]="c.id">{{ c.nombre }} — base Q{{ c.precio | number:'1.2-2' }}</option>
+                  </select>
+                </div>
+                <div class="campo">
+                  <label>Cirujano *</label>
+                  <select [(ngModel)]="formCirugia.idCirujano">
+                    <option [ngValue]="null" disabled>Seleccione...</option>
+                    <option *ngFor="let m of catalogos()?.medicos" [ngValue]="m.id">{{ m.nombre }}{{ m.especialidad ? ' · ' + m.especialidad : '' }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="fila">
+                <div class="campo"><label>Fecha programada *</label><input type="datetime-local" [(ngModel)]="formCirugia.fechaProgramada"></div>
+                <div class="campo">
+                  <label>Costo final (Q) *</label>
+                  <input type="number" min="0" step="0.01" [(ngModel)]="formCirugia.costoFinal">
+                  <small *ngIf="costoBaseCirugia != null && formCirugia.costoFinal != null && formCirugia.costoFinal !== costoBaseCirugia" style="color: #b45309;">
+                    Ajustado respecto a la tarifa base (Q{{ costoBaseCirugia | number:'1.2-2' }})
+                  </small>
+                </div>
+                <div class="campo" style="flex: 2;"><label>Observaciones</label><input type="text" [(ngModel)]="formCirugia.observaciones"></div>
+              </div>
+              <div style="display: flex; gap: 0.6rem;">
+                <button class="btn btn-primario" [disabled]="procesando()" (click)="guardarCirugia()">{{ editandoCirugiaId ? 'Guardar cambios' : 'Programar' }}</button>
+                <button *ngIf="editandoCirugiaId" class="btn" (click)="cancelarEdicionCirugia()">Cancelar</button>
+              </div>
+            </div>
+
+            <table class="tabla" *ngIf="d.cirugias.length; else sinCirugias">
+              <thead><tr><th>PROCEDIMIENTO</th><th>CIRUJANO</th><th>FECHA</th><th class="der">COSTO</th><th>ESTADO</th><th></th></tr></thead>
+              <tbody>
+                <tr *ngFor="let c of d.cirugias">
+                  <td style="font-weight: 700;">{{ c.procedimiento }}<br><small *ngIf="c.observaciones" style="color: #64748b; font-weight: 400;">{{ c.observaciones }}</small></td>
+                  <td>{{ c.cirujano || '—' }}</td>
+                  <td style="white-space: nowrap;">{{ (c.fechaRealizada || c.fechaProgramada) | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td class="der">
+                    <strong>Q{{ c.costoFinal | number:'1.2-2' }}</strong>
+                    <small *ngIf="c.costoFinal !== c.costoBase" style="display: block; color: #64748b;">base Q{{ c.costoBase | number:'1.2-2' }}</small>
+                  </td>
+                  <td><span class="badge" [ngClass]="claseEstado(c.estado)">{{ c.estado }}</span></td>
+                  <td style="white-space: nowrap;">
+                    <ng-container *ngIf="c.estado === 'Programada' && permisos.puede('HOSPITALIZACION', 'modificar')">
+                      <button class="link" (click)="realizarCirugia(c)">Realizada</button>
+                      <button class="link" (click)="editarCirugia(c)">Ajustar</button>
+                      <button class="link peligro" (click)="cancelarCirugia(c)">Cancelar</button>
+                    </ng-container>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #sinCirugias><div class="vacio">No hay cirugías programadas.</div></ng-template>
+          </ng-container>
+
+          <!-- Alta -->
+          <ng-container *ngIf="seccion() === 'alta'">
+            <p class="nota" *ngIf="cirugiasProgramadas > 0">⚠️ Hay {{ cirugiasProgramadas }} cirugía(s) programada(s). Márquelas como realizadas o cancélelas antes del alta.</p>
+            <div class="panel" *ngIf="permisos.puede('HOSPITALIZACION', 'modificar')">
+              <h4>Dar de alta</h4>
+              <div class="fila">
+                <div class="campo" style="max-width: 230px;"><label>Fecha y hora de alta *</label><input type="datetime-local" [(ngModel)]="formAlta.fechaAlta" [max]="ahora"></div>
+                <div class="campo" style="flex: 2;"><label>Observaciones / indicaciones de alta</label><input type="text" [(ngModel)]="formAlta.observaciones" placeholder="Ej. Alta médica con tratamiento ambulatorio"></div>
+              </div>
+              <p style="font-size: 0.82rem; color: #475569; margin: 0 0 0.75rem;">
+                Al confirmar se libera la habitación (pasa a Limpieza) y se cargan los días de estancia.
+                Después podrá cobrar toda la cuenta en un solo pago.
+              </p>
+              <button class="btn btn-verde" [disabled]="procesando() || cirugiasProgramadas > 0" (click)="darAlta()">✓ Confirmar alta</button>
+            </div>
+          </ng-container>
+        </ng-container>
+
+        <!-- ═══ ALTA: cobro único ═══ -->
+        <ng-container *ngIf="d.hospitalizacion.estado === 'Alta'">
+          <p *ngIf="d.hospitalizacion.observacionesAlta" style="font-size: 0.85rem; color: #475569;"><strong>Indicaciones de alta:</strong> {{ d.hospitalizacion.observacionesAlta }}</p>
+          <h4 style="margin: 1rem 0 0.5rem;">💵 Cuenta del paciente</h4>
+          <app-cuenta-paciente [idPaciente]="d.hospitalizacion.idPaciente" [nombrePaciente]="d.hospitalizacion.paciente" />
+        </ng-container>
+
+        <div *ngIf="d.hospitalizacion.estado === 'Cancelada'" class="vacio">Esta solicitud fue cancelada.</div>
+      </ng-container>
+    </section>
+
+    <ng-template #sinSeleccion>
+      <section class="detalle vacio">Seleccione una hospitalización de la lista.</section>
+    </ng-template>
+  </div>
+
+  <!-- ═══ MODAL NUEVA ═══ -->
+  <div *ngIf="modalNueva()" class="overlay">
+    <div class="modal">
+      <h3 style="margin-top: 0;">Nueva hospitalización</h3>
+      <div class="campo">
+        <label>Paciente *</label>
+        <input type="text" [ngModel]="busquedaPaciente" (ngModelChange)="onBuscarPaciente($event)" placeholder="Buscar por nombre o DPI...">
+      </div>
+      <div style="max-height: 170px; overflow-y: auto; margin-bottom: 0.75rem;">
+        <div *ngFor="let p of pacientes()" class="resultado" [class.elegido]="formNueva.idPaciente === p.id" (click)="formNueva.idPaciente = p.id">
+          <strong style="font-size: 0.86rem;">{{ p.nombreCompleto }}</strong> <small style="color: #64748b;">· {{ p.documento || 'Sin DPI' }}</small>
+        </div>
+        <div *ngIf="pacientes().length === 0" style="color: #94a3b8; font-size: 0.84rem;">Sin resultados (los pacientes ya hospitalizados no aparecen).</div>
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Tipo *</label>
+          <select [(ngModel)]="formNueva.tipo">
+            <option *ngFor="let t of catalogos()?.tipos" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="campo" style="flex: 2;">
+          <label>Médico responsable *</label>
+          <select [(ngModel)]="formNueva.idMedicoResponsable">
+            <option [ngValue]="null" disabled>Seleccione...</option>
+            <option *ngFor="let m of catalogos()?.medicos" [ngValue]="m.id">{{ m.nombre }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="campo"><label>Motivo *</label><textarea rows="2" [(ngModel)]="formNueva.motivo" placeholder="Ej. Dolor abdominal agudo en observación"></textarea></div>
+      <div style="display: flex; justify-content: flex-end; gap: 0.6rem;">
+        <button class="btn" (click)="modalNueva.set(false)">Cancelar</button>
+        <button class="btn btn-primario" [disabled]="procesando()" (click)="guardarNueva()">Registrar solicitud</button>
+      </div>
+    </div>
+  </div>
+</div>
