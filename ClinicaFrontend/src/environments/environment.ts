@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://NOMBRE-DE-TU-API.azurewebsites.net'
+  apiUrl: 'https://clinica-api-umg.whitebeach-17d93371.brazilsouth.azurecontainerapps.io'
 };
