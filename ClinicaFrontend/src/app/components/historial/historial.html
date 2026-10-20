@@ -1,0 +1,37 @@
+<div style="padding: 2rem;">
+
+  <div style="margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1.75rem; font-weight: 800; color: #0f172a; margin: 0;">Historial Clínico</h2>
+    <p style="color: #64748b; margin-top: 0.25rem;">Consultas, exámenes, diagnósticos, evolución y archivos de cada paciente.</p>
+  </div>
+
+  <div class="contenedor">
+
+    <!-- Lista de pacientes -->
+    <aside class="lista">
+      <input type="text" [(ngModel)]="busqueda" (input)="onBuscar()" placeholder="Buscar por nombre, DPI o teléfono..." class="buscador">
+
+      <div *ngIf="cargando()" class="vacio">Cargando pacientes...</div>
+
+      <div class="items">
+        <button *ngFor="let p of pacientes()" class="item" [class.activo]="idSeleccionado() === p.id" (click)="seleccionar(p)">
+          <strong>{{ p.nombres }} {{ p.apellidos }}</strong>
+          <small>{{ edad(p.fechaNacimiento) ?? '—' }} años · {{ p.documentoIdentificacion || 'Sin DPI' }}</small>
+        </button>
+        <div *ngIf="!cargando() && pacientes().length === 0" class="vacio">No se encontraron pacientes.</div>
+      </div>
+    </aside>
+
+    <!-- Expediente -->
+    <section class="detalle">
+      <app-historial-clinico *ngIf="idSeleccionado() as id; else sinSeleccion" [idPaciente]="id" [embebido]="true" />
+      <ng-template #sinSeleccion>
+        <div class="placeholder">
+          <div style="font-size: 2.5rem;">📋</div>
+          <p>Seleccione un paciente de la lista para ver su historial clínico.</p>
+        </div>
+      </ng-template>
+    </section>
+
+  </div>
+</div>

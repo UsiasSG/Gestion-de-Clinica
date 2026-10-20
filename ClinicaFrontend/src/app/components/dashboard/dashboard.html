@@ -1,0 +1,71 @@
+<div style="padding: 2rem;">
+
+  <!-- Encabezado de la página -->
+  <div style="margin-bottom: 2rem;">
+    <h2 style="font-size: 1.75rem; font-weight: 700; color: #0f172a; margin: 0;">Panel de Control</h2>
+    <p style="color: #64748b; margin-top: 0.25rem;">Bienvenido al sistema de gestión clínica en tiempo real.</p>
+  </div>
+
+  <!-- Aviso de Falta de Permiso -->
+  <div *ngIf="sinAcceso()" style="background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 0.75rem 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+    🔒 No tiene permiso para acceder al módulo {{ sinAcceso() }}.
+  </div>
+
+  <!-- Tarjetas de Acceso Rápido / Módulos -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+
+    <!-- TARJETA PACIENTES -->
+    <div *ngIf="permisos.tieneAcceso('PACIENTES')" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="width: 48px; height: 48px; background-color: #e0f2fe; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; color: #0284c7; margin-bottom: 1rem;">
+          <svg style="width: 28px; height: 28px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+        </div>
+        <h3 style="margin: 0 0 0.5rem 0; font-size: 1.125rem; font-weight: 700; color: #0f172a;">Gestión de Pacientes</h3>
+        <p style="margin: 0; font-size: 0.875rem; color: #64748b;">Registro, edición y expediente digital completo con historial médico y compras.</p>
+      </div>
+      <a routerLink="/pacientes" style="display: inline-block; margin-top: 1.5rem; padding: 0.5rem 1rem; background-color: #0284c7; color: #ffffff; text-decoration: none; border-radius: 0.5rem; font-weight: 600; font-size: 0.875rem; text-align: center;">
+        Ir a Pacientes →
+      </a>
+    </div>
+
+    <!-- TARJETA PERSONAL Y CREDENCIALES -->
+    <div *ngIf="permisos.tieneAcceso('PERSONAL')" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="width: 48px; height: 48px; background-color: #fef3c7; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; color: #d97706; margin-bottom: 1rem;">
+          <svg style="width: 28px; height: 28px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-6 0h6" /></svg>
+        </div>
+        <h3 style="margin: 0 0 0.5rem 0; font-size: 1.125rem; font-weight: 700; color: #0f172a;">Gestión de Personal</h3>
+        <p style="margin: 0; font-size: 0.875rem; color: #64748b;">Administración de cuerpo médico, especialidades y asignación de credenciales y roles.</p>
+      </div>
+      <a routerLink="/personal" style="display: inline-block; margin-top: 1.5rem; padding: 0.5rem 1rem; background-color: #d97706; color: #ffffff; text-decoration: none; border-radius: 0.5rem; font-weight: 600; font-size: 0.875rem; text-align: center;">
+        Gestionar Personal →
+      </a>
+    </div>
+
+    <!-- Módulo Habitaciones -->
+    <div *ngIf="permisos.tieneAcceso('HABITACIONES')" style="background-color: #ffffff; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="width: 48px; height: 48px; background-color: #e0f2fe; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; color: #0284c7; margin-bottom: 1rem;">
+          <svg style="width: 28px; height: 28px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+        </div>
+        <h3 style="font-size: 1.25rem; font-weight: 600; color: #1e293b; margin: 0 0 0.5rem 0;">Estado de Habitaciones</h3>
+        <p style="color: #64748b; font-size: 0.875rem; margin-bottom: 1.25rem;">Monitoreo en tiempo real de disponibilidad y mantenimiento vía SignalR.</p>
+      </div>
+      <a routerLink="/habitaciones" style="display: inline-block; background-color: #0284c7; color: #ffffff; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-weight: 500; font-size: 0.875rem; text-align: center;">Ver Habitaciones →</a>
+    </div>
+
+    <!-- Módulo POS / Ventas -->
+    <div *ngIf="permisos.tieneAcceso('POS')" style="background-color: #ffffff; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="width: 48px; height: 48px; background-color: #dcfce7; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; color: #16a34a; margin-bottom: 1rem;">
+          <svg style="width: 28px; height: 28px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" /></svg>
+        </div>
+        <h3 style="font-size: 1.25rem; font-weight: 600; color: #1e293b; margin: 0 0 0.5rem 0;">Punto de Venta / Farmacia</h3>
+        <p style="color: #64748b; font-size: 0.875rem; margin-bottom: 1.25rem;">Facturación de medicamentos, servicios y catálogo de productos.</p>
+      </div>
+      <a routerLink="/pos" style="display: inline-block; background-color: #16a34a; color: #ffffff; padding: 0.5rem 1rem; border-radius: 0.5rem; text-decoration: none; font-weight: 500; font-size: 0.875rem; text-align: center;">Abrir POS →</a>
+    </div>
+
+  </div>
+
+</div>

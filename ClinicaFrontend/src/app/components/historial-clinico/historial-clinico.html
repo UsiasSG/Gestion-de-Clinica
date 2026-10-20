@@ -1,0 +1,328 @@
+<div [class.overlay]="!embebido()">
+  <div [class.modal-hc]="!embebido()" [class.pagina-hc]="embebido()">
+
+    <!-- Encabezado -->
+    <div class="cab">
+      <div *ngIf="historial() as h; else tituloSimple">
+        <h3>Historial Clínico: {{ h.paciente.nombreCompleto }}</h3>
+        <div class="datos">
+          <span>🎂 {{ edad(h.paciente.fechaNacimiento) ?? '—' }} años</span>
+          <span>🪪 {{ h.paciente.documentoIdentificacion || 'Sin DPI' }}</span>
+          <span>🩸 {{ h.paciente.tipoSangre || 'N/R' }}</span>
+          <span>⚠️ Alergias: <strong style="color: #e11d48;">{{ h.paciente.alergias || 'Ninguna' }}</strong></span>
+          <span>📞 {{ h.paciente.telefono || 'N/A' }}</span>
+          <span *ngIf="h.permisos.empleado">✍️ {{ h.permisos.empleado }}</span>
+        </div>
+      </div>
+      <ng-template #tituloSimple><h3>Historial Clínico</h3></ng-template>
+      <button *ngIf="!embebido()" class="cerrar" (click)="cerrar.emit()">✕</button>
+    </div>
+
+    <div *ngIf="cargando()" class="vacio">Cargando expediente médico...</div>
+    <div *ngIf="!cargando() && error()" class="alerta">{{ error() }}</div>
+
+    <ng-container *ngIf="historial() as h">
+      <div class="tabs">
+        <button class="tab" [class.activa]="pestana() === 'consultas'" (click)="cambiarPestana('consultas')">i. Consultas y tratamientos ({{ h.consultas.length }})</button>
+        <button class="tab" [class.activa]="pestana() === 'examenes'" (click)="cambiarPestana('examenes')">ii. Exámenes ({{ h.examenes.length }})</button>
+        <button class="tab" [class.activa]="pestana() === 'diagnosticos'" (click)="cambiarPestana('diagnosticos')">iii. Diagnósticos ({{ h.diagnosticos.length }})</button>
+        <button class="tab" [class.activa]="pestana() === 'evolucion'" (click)="cambiarPestana('evolucion')">iv. Evolución ({{ h.evolucion.length }})</button>
+        <button class="tab" [class.activa]="pestana() === 'archivos'" (click)="cambiarPestana('archivos')">📎 Archivos ({{ h.archivos.length }})</button>
+      </div>
+
+      <div class="cuerpo">
+
+        <!-- ═══ i. CONSULTAS ═══ -->
+        <ng-container *ngIf="pestana() === 'consultas'">
+          <div class="accion" *ngIf="h.permisos.crear && formAbierto() !== 'consulta'">
+            <button class="btn btn-primario" (click)="abrirForm('consulta')">+ Nueva consulta</button>
+          </div>
+
+          <form *ngIf="formAbierto() === 'consulta'" class="panel form" (ngSubmit)="guardarConsulta()">
+            <div class="campo">
+              <label>Motivo de consulta *</label>
+              <input type="text" [(ngModel)]="formConsulta.motivoConsulta" name="motivo" placeholder="Ej. Dolor de cabeza y fiebre desde hace 2 días">
+            </div>
+
+            <div class="campo" *ngIf="!h.permisos.esDoctor">
+              <label>Médico tratante *</label>
+              <select [(ngModel)]="formConsulta.idDoctor" name="idDoctorConsulta">
+                <option [ngValue]="null" disabled>Seleccione...</option>
+                <option *ngFor="let m of h.medicos" [ngValue]="m.id">{{ m.nombre }}{{ m.especialidad ? ' · ' + m.especialidad : '' }}</option>
+              </select>
+              <small *ngIf="h.medicos.length === 0" style="color: #b45309;">No hay médicos registrados. Regístrelos en Gestión de Personal.</small>
+            </div>
+
+            <div class="fila">
+              <div class="campo">
+                <label>Sintomatología</label>
+                <textarea rows="2" [(ngModel)]="formConsulta.sintomatologia" name="sintomas"></textarea>
+              </div>
+              <div class="campo">
+                <label>Observaciones</label>
+                <textarea rows="2" [(ngModel)]="formConsulta.observaciones" name="observaciones"></textarea>
+              </div>
+            </div>
+
+            <ng-container *ngIf="h.permisos.diagnosticar; else sinPermisoDiag">
+              <div class="sub">Diagnósticos <button type="button" class="link" (click)="agregarDiagnosticoFila()">+ Agregar diagnóstico</button></div>
+              <div *ngFor="let d of formConsulta.diagnosticos; let i = index" class="fila">
+                <div class="campo" style="flex: 0.35;"><input type="text" [(ngModel)]="d.codigoCie" [name]="'cie' + i" placeholder="CIE-10 (ej. J06.9)"></div>
+                <div class="campo"><input type="text" [(ngModel)]="d.descripcion" [name]="'diag' + i" placeholder="Descripción del diagnóstico"></div>
+                <button type="button" class="link peligro" (click)="quitarDiagnosticoFila(i)">✕</button>
+              </div>
+            </ng-container>
+            <ng-template #sinPermisoDiag>
+              <p class="nota" style="margin: 0;">🔒 Su rol no tiene permiso para registrar diagnósticos.</p>
+            </ng-template>
+
+            <div class="sub">Tratamientos / receta <button type="button" class="link" (click)="agregarTratamientoFila()">+ Agregar tratamiento</button></div>
+            <div *ngFor="let t of formConsulta.tratamientos; let i = index" class="fila">
+              <div class="campo"><input type="text" [(ngModel)]="t.descripcion" [name]="'trat' + i" placeholder="Ej. Paracetamol 500 mg"></div>
+              <div class="campo"><input type="text" [(ngModel)]="t.indicaciones" [name]="'ind' + i" placeholder="Ej. 1 tableta cada 8 horas"></div>
+              <div class="campo" style="flex: 0.45;"><input type="date" [(ngModel)]="t.fechaInicio" [name]="'ini' + i" title="Inicio"></div>
+              <div class="campo" style="flex: 0.45;"><input type="date" [(ngModel)]="t.fechaFin" [name]="'fin' + i" title="Fin"></div>
+              <button type="button" class="link peligro" (click)="quitarTratamientoFila(i)">✕</button>
+            </div>
+
+            <div class="pie">
+              <button type="button" class="btn" (click)="cancelarForm()">Cancelar</button>
+              <button type="submit" class="btn btn-primario" [disabled]="procesando()">{{ procesando() ? 'Guardando...' : 'Guardar consulta' }}</button>
+            </div>
+          </form>
+
+          <div *ngFor="let c of h.consultas" class="tarjeta">
+            <div class="meta">
+              <span style="color: #0284c7;">📅 {{ c.fechaConsulta | date:'dd/MM/yyyy HH:mm' }}</span>
+              <span>👨‍⚕️ {{ c.doctor }}{{ c.especialidad ? ' · ' + c.especialidad : '' }}</span>
+            </div>
+            <p><strong>Motivo:</strong> {{ c.motivoConsulta || '—' }}</p>
+            <p *ngIf="c.sintomatologia"><strong>Síntomas:</strong> {{ c.sintomatologia }}</p>
+            <p *ngIf="c.observaciones"><strong>Observaciones:</strong> {{ c.observaciones }}</p>
+            <div class="chips" *ngIf="c.diagnosticos.length">
+              <span *ngFor="let d of c.diagnosticos" class="badge b-azul">{{ d.codigoCie ? d.codigoCie + ' · ' : '' }}{{ d.descripcion }}</span>
+            </div>
+            <div *ngIf="c.tratamientos.length" style="margin-top: 0.5rem;">
+              <p *ngFor="let t of c.tratamientos" style="color: #15803d;">
+                💊 <strong>{{ t.descripcion }}</strong>{{ t.indicaciones ? ' — ' + t.indicaciones : '' }}
+                <small *ngIf="t.fechaInicio" style="color: #64748b;">({{ t.fechaInicio | date:'dd/MM/yyyy' }}{{ t.fechaFin ? ' al ' + (t.fechaFin | date:'dd/MM/yyyy') : '' }})</small>
+              </p>
+            </div>
+          </div>
+          <div *ngIf="h.consultas.length === 0" class="vacio">No hay consultas médicas registradas.</div>
+        </ng-container>
+
+        <!-- ═══ ii. EXÁMENES ═══ -->
+        <ng-container *ngIf="pestana() === 'examenes'">
+          <div class="accion" *ngIf="h.permisos.crear && formAbierto() !== 'examen'">
+            <button class="btn btn-primario" (click)="abrirForm('examen')">+ Registrar examen</button>
+          </div>
+
+          <form *ngIf="formAbierto() === 'examen'" class="panel form" (ngSubmit)="guardarExamen()">
+            <div class="fila">
+              <div class="campo"><label>Examen *</label><input type="text" [(ngModel)]="formExamen.nombreExamen" name="nombreExamen" placeholder="Ej. Hemograma completo"></div>
+              <div class="campo" style="flex: 0.5;"><label>Fecha *</label><input type="date" [(ngModel)]="formExamen.fechaExamen" name="fechaExamen" [max]="hoy"></div>
+            </div>
+            <div class="campo">
+              <label>Consulta relacionada</label>
+              <select [(ngModel)]="formExamen.idConsulta" name="idConsultaExamen">
+                <option [ngValue]="null">Sin consulta relacionada</option>
+                <option *ngFor="let c of h.consultas" [ngValue]="c.id">{{ c.fechaConsulta | date:'dd/MM/yyyy' }} · {{ c.motivoConsulta }}</option>
+              </select>
+            </div>
+            <div class="campo"><label>Resultado (dejar vacío si está pendiente)</label><textarea rows="2" [(ngModel)]="formExamen.resultado" name="resultado"></textarea></div>
+            <div class="campo"><label>Observaciones</label><input type="text" [(ngModel)]="formExamen.observaciones" name="obsExamen"></div>
+            <div class="pie">
+              <button type="button" class="btn" (click)="cancelarForm()">Cancelar</button>
+              <button type="submit" class="btn btn-primario" [disabled]="procesando()">{{ procesando() ? 'Guardando...' : 'Guardar examen' }}</button>
+            </div>
+          </form>
+
+          <table class="tabla" *ngIf="h.examenes.length">
+            <thead><tr><th>FECHA</th><th>EXAMEN</th><th>RESULTADO</th><th>ESTADO</th><th>ARCHIVOS</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let ex of h.examenes">
+                <td style="white-space: nowrap;">{{ ex.fechaExamen | date:'dd/MM/yyyy' }}</td>
+                <td style="font-weight: 700;">{{ ex.nombreExamen }}<br><small *ngIf="ex.observaciones" style="color: #64748b; font-weight: 400;">{{ ex.observaciones }}</small></td>
+                <td>
+                  <ng-container *ngIf="examenResultadoId === ex.id; else verResultado">
+                    <textarea rows="2" [(ngModel)]="textoResultado" style="width: 100%; padding: 0.4rem; border: 1px solid #0284c7; border-radius: 0.375rem; font-family: inherit; box-sizing: border-box;"></textarea>
+                    <div style="display: flex; gap: 0.75rem; margin-top: 0.25rem;">
+                      <button class="link" (click)="guardarResultado(ex)" [disabled]="procesando()">Guardar</button>
+                      <button class="link peligro" (click)="cancelarForm()">Cancelar</button>
+                    </div>
+                  </ng-container>
+                  <ng-template #verResultado>
+                    {{ ex.resultado || '—' }}
+                    <button *ngIf="h.permisos.modificar" class="link" style="display: block; margin-top: 0.25rem;" (click)="iniciarResultado(ex)">
+                      {{ ex.resultado ? 'Corregir resultado' : 'Registrar resultado' }}
+                    </button>
+                  </ng-template>
+                </td>
+                <td><span class="badge" [ngClass]="ex.estado === 'Completado' ? 'b-verde' : 'b-ambar'">{{ ex.estado }}</span></td>
+                <td style="white-space: nowrap;">
+                  <span *ngIf="ex.adjuntos > 0">📎 {{ ex.adjuntos }}</span>
+                  <button *ngIf="h.permisos.crear" class="link" style="display: block; margin-top: 0.25rem;" (click)="adjuntarAExamen(ex)">+ Adjuntar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div *ngIf="h.examenes.length === 0" class="vacio">No se registran exámenes.</div>
+        </ng-container>
+
+        <!-- ═══ iii. DIAGNÓSTICOS ═══ -->
+        <ng-container *ngIf="pestana() === 'diagnosticos'">
+          <div class="accion" *ngIf="h.permisos.diagnosticar && formAbierto() !== 'diagnostico'">
+            <button class="btn btn-primario" (click)="abrirForm('diagnostico')" [disabled]="h.consultas.length === 0">+ Nuevo diagnóstico</button>
+            <small *ngIf="h.consultas.length === 0" style="color: #64748b; margin-left: 0.5rem;">Primero registre una consulta.</small>
+          </div>
+
+          <form *ngIf="formAbierto() === 'diagnostico'" class="panel form" (ngSubmit)="guardarDiagnostico()">
+            <div class="campo">
+              <label>Consulta *</label>
+              <select [(ngModel)]="formDiagnostico.idConsulta" name="idConsultaDiag">
+                <option *ngFor="let c of h.consultas" [ngValue]="c.id">{{ c.fechaConsulta | date:'dd/MM/yyyy' }} · {{ c.motivoConsulta }}</option>
+              </select>
+            </div>
+
+            <div class="campo" *ngIf="!h.permisos.esDoctor">
+              <label>Médico que asigna el diagnóstico *</label>
+              <select [(ngModel)]="formDiagnostico.idDoctor" name="idDoctorDiag">
+                <option [ngValue]="null" disabled>Seleccione...</option>
+                <option *ngFor="let m of h.medicos" [ngValue]="m.id">{{ m.nombre }}{{ m.especialidad ? ' · ' + m.especialidad : '' }}</option>
+              </select>
+            </div>
+
+            <div class="fila">
+              <div class="campo" style="flex: 0.35;"><label>Código CIE-10</label><input type="text" [(ngModel)]="formDiagnostico.codigoCie" name="cie" placeholder="Ej. G44.2"></div>
+              <div class="campo"><label>Descripción *</label><input type="text" [(ngModel)]="formDiagnostico.descripcion" name="descripcionDiag" placeholder="Ej. Cefalea de tipo tensional"></div>
+            </div>
+            <div class="pie">
+              <button type="button" class="btn" (click)="cancelarForm()">Cancelar</button>
+              <button type="submit" class="btn btn-primario" [disabled]="procesando()">{{ procesando() ? 'Guardando...' : 'Guardar diagnóstico' }}</button>
+            </div>
+          </form>
+
+          <div *ngFor="let d of h.diagnosticos" class="tarjeta">
+            <span *ngIf="d.codigoCie" class="badge b-azul" style="margin-right: 0.4rem;">CIE: {{ d.codigoCie }}</span>
+            <strong style="font-size: 0.9rem;">{{ d.descripcion }}</strong>
+            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.3rem;">
+              Asignado por {{ d.doctor }} · {{ d.fechaDiagnostico | date:'dd/MM/yyyy HH:mm' }}
+              <span *ngIf="d.motivoConsulta"> · Consulta: {{ d.motivoConsulta }}</span>
+            </div>
+          </div>
+          <div *ngIf="h.diagnosticos.length === 0" class="vacio">No se han registrado diagnósticos.</div>
+        </ng-container>
+
+        <!-- ═══ iv. EVOLUCIÓN ═══ -->
+        <ng-container *ngIf="pestana() === 'evolucion'">
+          <div class="accion" *ngIf="h.permisos.crear && formAbierto() !== 'evolucion'">
+            <button class="btn btn-primario" (click)="abrirForm('evolucion')">+ Nueva nota de evolución</button>
+          </div>
+
+          <form *ngIf="formAbierto() === 'evolucion'" class="panel form" (ngSubmit)="guardarEvolucion()">
+            <div class="fila">
+              <div class="campo">
+                <label>Nota de evolución *</label>
+                <textarea rows="3" [(ngModel)]="formEvolucion.notaEvolucion" name="nota" placeholder="Ej. Paciente refiere disminución del dolor. Signos vitales estables."></textarea>
+              </div>
+              <div class="campo" style="flex: 0.4;">
+                <label>Estado de salud</label>
+                <select [(ngModel)]="formEvolucion.estadoSalud" name="estadoSalud">
+                  <option *ngFor="let e of estadosSalud" [value]="e">{{ e }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="campo" *ngIf="!h.permisos.esPersonalClinico">
+              <label>Responsable de la nota *</label>
+              <select [(ngModel)]="formEvolucion.idResponsable" name="idResponsable">
+                <option [ngValue]="null" disabled>Seleccione...</option>
+                <option *ngFor="let p of h.personalClinico" [ngValue]="p.id">{{ p.nombre }} ({{ p.tipo }})</option>
+              </select>
+            </div>
+
+            <div class="pie">
+              <button type="button" class="btn" (click)="cancelarForm()">Cancelar</button>
+              <button type="submit" class="btn btn-primario" [disabled]="procesando()">{{ procesando() ? 'Guardando...' : 'Guardar nota' }}</button>
+            </div>
+          </form>
+
+          <div *ngFor="let ev of h.evolucion" class="linea">
+            <div class="meta">
+              <span>📅 {{ ev.fechaRegistro | date:'dd/MM/yyyy HH:mm' }}</span>
+              <span>
+                {{ ev.tipoResponsable === 'Enfermera' ? '👩‍⚕️' : '👨‍⚕️' }} {{ ev.responsable }}
+                <span *ngIf="ev.estadoSalud" class="badge" [ngClass]="claseSalud(ev.estadoSalud)" style="margin-left: 0.4rem;">{{ ev.estadoSalud }}</span>
+              </span>
+            </div>
+            <p style="margin: 0; font-size: 0.875rem; background: #f8fafc; padding: 0.75rem; border-radius: 0.375rem; border: 1px solid #f1f5f9;">{{ ev.notaEvolucion }}</p>
+          </div>
+          <div *ngIf="h.evolucion.length === 0" class="vacio">No hay notas de evolución registradas.</div>
+        </ng-container>
+
+        <!-- ═══ ARCHIVOS ADJUNTOS ═══ -->
+        <ng-container *ngIf="pestana() === 'archivos'">
+          <div class="accion" *ngIf="h.permisos.crear && formAbierto() !== 'archivo'">
+            <button class="btn btn-primario" (click)="abrirForm('archivo')">+ Subir archivo</button>
+          </div>
+
+          <form *ngIf="formAbierto() === 'archivo'" class="panel form" (ngSubmit)="guardarArchivo()">
+            <div class="campo">
+              <label>Archivo * (PDF, JPG o PNG · máximo 5 MB)</label>
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onArchivoSeleccionado($event)">
+              <small *ngIf="archivoSeleccionado" style="color: #15803d;">
+                ✓ {{ archivoSeleccionado.name }} ({{ tamanoLegible(archivoSeleccionado.size) }})
+              </small>
+            </div>
+            <div class="fila">
+              <div class="campo">
+                <label>Categoría *</label>
+                <select [(ngModel)]="formArchivo.categoria" name="categoriaArchivo">
+                  <option *ngFor="let c of categoriasArchivo" [value]="c">{{ c }}</option>
+                </select>
+              </div>
+              <div class="campo">
+                <label>Examen relacionado</label>
+                <select [(ngModel)]="formArchivo.idExamen" name="examenArchivo">
+                  <option [ngValue]="null">Ninguno</option>
+                  <option *ngFor="let ex of h.examenes" [ngValue]="ex.id">{{ ex.fechaExamen | date:'dd/MM/yyyy' }} · {{ ex.nombreExamen }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="campo">
+              <label>Descripción</label>
+              <input type="text" [(ngModel)]="formArchivo.descripcion" name="descripcionArchivo" placeholder="Ej. Radiografía de tórax, vista frontal">
+            </div>
+            <div class="pie">
+              <button type="button" class="btn" (click)="cancelarForm()">Cancelar</button>
+              <button type="submit" class="btn btn-primario" [disabled]="procesando() || !archivoSeleccionado">{{ procesando() ? 'Subiendo...' : 'Subir archivo' }}</button>
+            </div>
+          </form>
+
+          <div *ngFor="let a of h.archivos" class="tarjeta archivo">
+            <div class="icono">{{ iconoArchivo(a.tipoContenido) }}</div>
+            <div style="flex: 1; min-width: 0;">
+              <strong class="nombre-archivo">{{ a.nombreArchivo }}</strong>
+              <div class="chips" style="margin-top: 0.25rem;">
+                <span class="badge b-azul">{{ a.categoria }}</span>
+                <span *ngIf="a.examen" class="badge b-verde">Examen: {{ a.examen }}</span>
+              </div>
+              <p *ngIf="a.descripcion" style="color: #475569;">{{ a.descripcion }}</p>
+              <small style="color: #64748b;">
+                {{ tamanoLegible(a.tamanoBytes) }} · {{ a.fechaSubida | date:'dd/MM/yyyy HH:mm' }}{{ a.subidoPor ? ' · ' + a.subidoPor : '' }}
+              </small>
+            </div>
+            <div class="acciones-archivo">
+              <button class="link" (click)="verArchivo(a)">Ver</button>
+              <button class="link" (click)="descargarArchivo(a)">Descargar</button>
+              <button *ngIf="h.permisos.eliminar" class="link peligro" (click)="eliminarArchivo(a)">Eliminar</button>
+            </div>
+          </div>
+          <div *ngIf="h.archivos.length === 0" class="vacio">No hay archivos adjuntos para este paciente.</div>
+        </ng-container>
+
+      </div>
+    </ng-container>
+  </div>
+</div>

@@ -1,0 +1,8 @@
+.campo { display: flex; flex-direction: column; gap: .25rem; flex: 1; }
+.campo label { font-size: .75rem; font-weight: 700; color: #64748b; text-transform: uppercase; }
+.campo input, .campo select { width: 100%; padding: .5rem; border: 1px solid #cbd5e1; border-radius: .375rem; font-size: .875rem; box-sizing: border-box; background: #fff; }
+.campo input:focus, .campo select:focus { outline: none; border-color: #0284c7; }
+.fila { display: flex; gap: 1rem; }
+.btn { padding: .5rem 1rem; border-radius: .375rem; font-weight: 600; cursor: pointer; border: 1px solid #cbd5e1; background: #f1f5f9; }
+.btn-primario { background: #0284c7; color: #fff; border: none; }
+.btn-primario:disabled { opacity: .6; cursor: not-allowed; }

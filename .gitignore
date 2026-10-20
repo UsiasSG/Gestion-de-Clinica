@@ -1,0 +1,27 @@
+# ───── .NET ─────
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.rsuser
+TestResults/
+
+# ───── Angular / Node ─────
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+
+# ───── Secretos (nunca subir) ─────
+docker.env
+*.env
+appsettings.*.local.json
+
+# ───── Editores y sistema ─────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.tmp

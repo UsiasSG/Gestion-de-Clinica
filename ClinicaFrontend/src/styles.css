@@ -1,0 +1,21 @@
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .area-impresion, .area-impresion * {
+    visibility: visible !important;
+  }
+
+  .area-impresion {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 80mm;
+    border: none !important;
+  }
+
+  .no-imprimir {
+    display: none !important;
+  }
+}

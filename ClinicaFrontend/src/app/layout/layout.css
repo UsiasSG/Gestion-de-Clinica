@@ -1,0 +1,132 @@
+.app-shell {
+  display: flex;
+  height: 100vh;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #f8fafc;
+}
+
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: #0f172a;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 10px rgba(0,0,0,.1);
+}
+
+.marca {
+  padding: 1.5rem 1.25rem;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+.logo {
+  background: #0284c7;
+  width: 40px;
+  height: 40px;
+  border-radius: .5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.marca h1 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.marca small {
+  color: #94a3b8;
+  font-size: .75rem;
+}
+
+.menu {
+  padding: 1.25rem .75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+  .menu a {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .75rem 1rem;
+    color: #94a3b8;
+    text-decoration: none;
+    border-radius: .5rem;
+    font-size: .938rem;
+    font-weight: 600;
+    transition: background .15s, color .15s;
+  }
+
+    .menu a:hover {
+      background: #1e293b;
+      color: #fff;
+    }
+
+    .menu a.activo {
+      background: #0284c7;
+      color: #fff;
+      font-weight: 700;
+    }
+
+.icono {
+  width: 1.25rem;
+  text-align: center;
+}
+
+.usuario {
+  border-top: 1px solid #1e293b;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.usuario-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+  .usuario-info strong {
+    font-size: .875rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .usuario-info small {
+    color: #94a3b8;
+    font-size: .75rem;
+  }
+
+.usuario button {
+  background: #1e293b;
+  color: #f87171;
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: .5rem;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+  .usuario button:hover {
+    background: #7f1d1d;
+    color: #fff;
+  }
+
+.contenido {
+  flex-grow: 1;
+  overflow-y: auto;
+}

@@ -1,0 +1,36 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="marca">
+      <div class="logo">🏥</div>
+      <div>
+        <h1>Clínica Médica</h1>
+        <small>Gestión Integral</small>
+      </div>
+    </div>
+
+    <nav class="menu">
+      @if (cargandoMenu()) {
+      <small style="color: #64748b; padding: 0.75rem 1rem;">Cargando menú...</small>
+      }
+      @for (item of menu(); track item.ruta) {
+      <a [routerLink]="item.ruta" routerLinkActive="activo">
+        <span class="icono">{{ item.icono }}</span>
+        <span>{{ item.etiqueta }}</span>
+      </a>
+      }
+    </nav>
+
+    <div class="usuario">
+      <div class="usuario-info">
+        <strong>{{ usuario()?.nombreUsuario ?? 'Usuario' }}</strong>
+        <small>🔑 {{ usuario()?.rolNombre ?? 'Sin rol' }}</small>
+        <small>📍 {{ usuario()?.nombreSucursal ?? 'Sin sucursal' }}</small>
+      </div>
+      <button (click)="cerrarSesion()" title="Cerrar sesión">⏻</button>
+    </div>
+  </aside>
+
+  <main class="contenido">
+    <router-outlet />
+  </main>
+</div>

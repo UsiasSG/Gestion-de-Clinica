@@ -1,0 +1,157 @@
+.producto {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: .75rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  position: relative;
+  transition: border-color .15s,box-shadow .15s
+}
+
+  .producto:hover {
+    border-color: #0284c7;
+    box-shadow: 0 4px 10px rgba(2,132,199,.08)
+  }
+
+  .producto.agotado {
+    opacity: .5;
+    cursor: not-allowed
+  }
+
+.en-carrito {
+  position: absolute;
+  top: .5rem;
+  right: .5rem;
+  background: #0284c7;
+  color: #fff;
+  border-radius: 9999px;
+  font-size: .7rem;
+  font-weight: 800;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 .3rem
+}
+
+.badge {
+  font-size: .68rem;
+  font-weight: 700;
+  padding: .1rem .45rem;
+  border-radius: .25rem
+}
+
+.b-gris {
+  background: #f1f5f9;
+  color: #475569
+}
+
+.b-azul {
+  background: #e0f2fe;
+  color: #075985
+}
+
+.b-ambar {
+  background: #fef3c7;
+  color: #92400e
+}
+
+.campo label {
+  display: block;
+  font-size: .72rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: .25rem;
+  text-transform: uppercase
+}
+
+.campo input {
+  width: 100%;
+  padding: .5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: .375rem;
+  font-size: .875rem;
+  box-sizing: border-box
+}
+
+.opcion {
+  padding: .5rem .75rem;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer
+}
+
+  .opcion:hover {
+    background: #f8fafc
+  }
+
+.btn-cant {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: .25rem;
+  cursor: pointer;
+  font-weight: 700
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100
+}
+
+.modal {
+  background: #fff;
+  width: 480px;
+  max-width: calc(100% - 2rem);
+  border-radius: .75rem;
+  padding: 1.5rem;
+  max-height: 92vh;
+  overflow-y: auto
+}
+
+.metodo {
+  padding: .5rem;
+  font-size: .85rem;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  border-radius: .375rem;
+  cursor: pointer;
+  background: #f8fafc;
+  color: #475569
+}
+
+  .metodo.activo {
+    background: #0284c7;
+    color: #fff;
+    border-color: #0284c7
+  }
+
+.ticket {
+  font-family: 'Courier New',monospace;
+  font-size: .8rem;
+  color: #0f172a;
+  background: #fff;
+  padding: 1rem;
+  border: 1px dashed #cbd5e1
+}
+
+  .ticket hr {
+    border: none;
+    border-top: 1px dashed #94a3b8;
+    margin: .5rem 0
+  }
+
+  .ticket .fila {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem
+  }

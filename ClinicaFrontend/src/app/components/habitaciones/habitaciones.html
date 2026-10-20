@@ -1,0 +1,223 @@
+<div style="padding: 2rem;">
+
+  <!-- Encabezado -->
+  <div class="cab">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <h2 style="font-size: 1.75rem; font-weight: 800; color: #0f172a; margin: 0;">Habitaciones</h2>
+        <span class="badge" [ngClass]="conectado() ? 'e-disp' : 'e-mant'">
+          {{ conectado() ? '● En vivo (SignalR)' : '○ Conectando...' }}
+        </span>
+      </div>
+      <p style="color: #64748b; margin-top: 0.25rem;">Estado en tiempo real, asignación de pacientes y control de ingresos y egresos.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem; align-items: center;">
+      <select class="sel" [ngModel]="idSucursal()" (ngModelChange)="cambiarSucursal($event)">
+        <option *ngFor="let s of sucursales()" [ngValue]="s.id">📍 {{ s.nombre }}</option>
+      </select>
+      <button class="btn btn-primario" style="padding: 0.65rem 1rem;" (click)="abrirNuevaHabitacion()">+ Nueva habitación</button>
+    </div>
+  </div>
+
+  <!-- Filtros por estado -->
+  <div class="chips">
+    <button class="chip" [class.activo]="filtroEstado() === 'Todos'" (click)="filtroEstado.set('Todos')">
+      Todas ({{ habitaciones().length }})
+    </button>
+    <button *ngFor="let e of estados" class="chip" [class.activo]="filtroEstado() === e" (click)="filtroEstado.set(e)">
+      {{ e }} ({{ resumen()[e] }})
+    </button>
+    <span style="margin-left: auto; color: #64748b; font-size: 0.85rem;">🛏️ {{ pacientesInternados() }} paciente(s) internado(s)</span>
+  </div>
+
+  <input class="buscador" [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)"
+         placeholder="Buscar por número, tipo o paciente..."
+         style="width: 100%; max-width: 380px; margin-bottom: 1.25rem; box-sizing: border-box;">
+
+  <div *ngIf="cargando()" style="text-align: center; color: #64748b; padding: 3rem;">Cargando habitaciones...</div>
+
+  <!-- Tarjetas -->
+  <div class="grid" *ngIf="!cargando()">
+    <div *ngFor="let h of filtradas()" class="hab" [style.border-top-color]="colorEstado(h.estado)">
+
+      <div class="hab-cab">
+        <div>
+          <span class="num">Habitación {{ h.numeroHabitacion }}</span>
+          <h3>{{ h.tipoHabitacion || 'Sin tipo' }}</h3>
+          <small>Ocupación {{ h.ocupantes.length }}/{{ h.capacidad }} · Q{{ (h.precioDiario ?? 0) | number:'1.2-2' }}/día</small>
+        </div>
+        <span class="badge" [ngClass]="claseEstado(h.estado)">● {{ h.estado }}</span>
+      </div>
+
+      <div>
+        <div *ngFor="let o of h.ocupantes" class="ocupante">
+          <div>
+            <strong style="font-size: 0.875rem;">{{ o.pacienteNombre }}</strong>
+            <small>Ingreso: {{ o.fechaIngreso | date:'dd/MM/yyyy HH:mm' }} · {{ diasEstancia(o.fechaIngreso) }} día(s)</small>
+          </div>
+          <button class="btn-mini peligro" (click)="abrirEgreso(h, o)">Egreso</button>
+        </div>
+        <div *ngIf="h.ocupantes.length === 0" class="vacia">Sin pacientes</div>
+      </div>
+
+      <div class="acciones-hab">
+        <button *ngIf="puedeAsignar(h)" class="btn btn-primario" (click)="abrirAsignar(h)">+ Asignar paciente</button>
+        <button *ngFor="let e of estadosManuales(h)" class="btn" (click)="cambiarEstado(h, e)">{{ etiquetaEstado(e) }}</button>
+      </div>
+
+      <div class="links">
+        <button (click)="verHistorial(h)">Historial</button>
+        <button (click)="editarHabitacion(h)">Editar</button>
+        <button class="peligro" (click)="eliminarHabitacion(h)">Eliminar</button>
+      </div>
+    </div>
+
+    <div *ngIf="filtradas().length === 0" style="grid-column: 1 / -1; text-align: center; color: #94a3b8; padding: 3rem;">
+      No hay habitaciones que coincidan con los filtros.
+    </div>
+  </div>
+
+  <!-- ═══ MODAL HABITACIÓN ═══ -->
+  <div *ngIf="modalHabitacion()" class="overlay">
+    <div class="modal">
+      <h3>{{ editandoId ? 'Editar Habitación' : 'Nueva Habitación' }}</h3>
+      <form class="form" (ngSubmit)="guardarHabitacion()">
+        <div class="fila">
+          <div class="campo">
+            <label>Número *</label>
+            <input type="text" [(ngModel)]="formHab.numeroHabitacion" name="numero" placeholder="Ej. 101">
+          </div>
+          <div class="campo">
+            <label>Tipo *</label>
+            <select [ngModel]="formHab.tipoHabitacion" (ngModelChange)="onTipoChange($event)" name="tipo">
+              <option value="" disabled>Seleccione...</option>
+              <option *ngFor="let t of tipos()" [value]="t">{{ t }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="fila">
+          <div class="campo">
+            <label>Capacidad (pacientes) *</label>
+            <input type="number" min="1" max="6" step="1" [(ngModel)]="formHab.capacidad" name="capacidad">
+          </div>
+          <div class="campo">
+            <label>Precio diario (Q) *</label>
+            <input type="number" min="0" step="0.01" [(ngModel)]="formHab.precioDiario" name="precio">
+          </div>
+        </div>
+        <div class="campo">
+          <label>Sucursal *</label>
+          <select [(ngModel)]="formHab.idSucursal" name="sucursal">
+            <option [ngValue]="null" disabled>Seleccione...</option>
+            <option *ngFor="let s of sucursales()" [ngValue]="s.id">{{ s.nombre }}</option>
+          </select>
+        </div>
+        <div class="pie">
+          <button type="button" class="btn" (click)="cerrarModales()">Cancelar</button>
+          <button type="submit" class="btn btn-primario" [disabled]="procesando()">{{ procesando() ? 'Guardando...' : 'Guardar' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL ASIGNAR ═══ -->
+  <div *ngIf="modalAsignar() && habSeleccionada as h" class="overlay">
+    <div class="modal">
+      <h3>Asignar paciente · Habitación {{ h.numeroHabitacion }}</h3>
+      <p style="margin: -0.5rem 0 1rem; color: #64748b; font-size: 0.85rem;">
+        {{ h.tipoHabitacion }} · Ocupación {{ h.ocupantes.length }}/{{ h.capacidad }} · Q{{ (h.precioDiario ?? 0) | number:'1.2-2' }}/día
+      </p>
+      <form class="form" (ngSubmit)="guardarAsignacion()">
+        <div class="campo">
+          <label>Paciente *</label>
+          <input type="text" [ngModel]="busquedaPaciente" (ngModelChange)="onBuscarPaciente($event)"
+                 name="buscarPaciente" placeholder="Buscar por nombre o DPI..." autocomplete="off">
+        </div>
+        <div style="max-height: 190px; overflow-y: auto;">
+          <div *ngFor="let p of pacientesEncontrados()" class="resultado" [class.elegido]="pacienteElegido?.id === p.id" (click)="pacienteElegido = p">
+            <strong style="font-size: 0.875rem;">{{ p.nombreCompleto }}</strong><br>
+            <small style="color: #64748b;">DPI: {{ p.documento || 'N/R' }}</small>
+          </div>
+          <div *ngIf="pacientesEncontrados().length === 0" style="color: #94a3b8; font-size: 0.85rem; padding: 0.5rem;">
+            No hay pacientes disponibles con ese criterio. Los pacientes ya internados no aparecen.
+          </div>
+        </div>
+        <div class="campo">
+          <label>Fecha y hora de ingreso *</label>
+          <input type="datetime-local" [(ngModel)]="fechaIngreso" name="fechaIngreso" [max]="ahora">
+        </div>
+        <div class="campo">
+          <label>Motivo / observaciones</label>
+          <textarea rows="2" [(ngModel)]="observacionesIngreso" name="obsIngreso" placeholder="Ej. Post-operatorio, observación 24 horas"></textarea>
+        </div>
+        <div class="pie">
+          <button type="button" class="btn" (click)="cerrarModales()">Cancelar</button>
+          <button type="submit" class="btn btn-primario" [disabled]="procesando()">{{ procesando() ? 'Asignando...' : 'Asignar' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL EGRESO ═══ -->
+  <div *ngIf="modalEgreso() && ocupanteEgreso as o" class="overlay">
+    <div class="modal" style="max-width: 480px;">
+      <h3>Registrar egreso</h3>
+      <div class="info">
+        <strong>{{ o.pacienteNombre }}</strong> · Habitación {{ habSeleccionada?.numeroHabitacion }}<br>
+        Ingreso: {{ o.fechaIngreso | date:'dd/MM/yyyy HH:mm' }}<br>
+        Estancia: <strong>{{ diasEstancia(o.fechaIngreso, fechaEgreso) }} día(s)</strong> ·
+        Costo estimado: <strong>Q{{ costoEstimado(o) | number:'1.2-2' }}</strong>
+        <div *ngIf="o.observaciones" style="color: #64748b;">Motivo de ingreso: {{ o.observaciones }}</div>
+      </div>
+      <form class="form" (ngSubmit)="guardarEgreso()">
+        <div class="campo">
+          <label>Fecha y hora de egreso *</label>
+          <input type="datetime-local" [(ngModel)]="fechaEgreso" name="fechaEgreso" [min]="o.fechaIngreso.slice(0, 16)" [max]="ahora">
+        </div>
+        <div class="campo">
+          <label>Observaciones del egreso</label>
+          <textarea rows="2" [(ngModel)]="observacionesEgreso" name="obsEgreso" placeholder="Ej. Alta médica, traslado, etc."></textarea>
+        </div>
+        <small style="color: #64748b;">Si la habitación queda vacía pasará automáticamente a Limpieza.</small>
+        <div class="pie">
+          <button type="button" class="btn" (click)="cerrarModales()">Cancelar</button>
+          <button type="submit" class="btn btn-primario" [disabled]="procesando()">{{ procesando() ? 'Registrando...' : 'Registrar egreso' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL HISTORIAL ═══ -->
+  <div *ngIf="modalHistorial() && habSeleccionada as h" class="overlay">
+    <div class="modal" style="max-width: 760px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0;">Historial · Habitación {{ h.numeroHabitacion }}</h3>
+        <button (click)="cerrarModales()" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: #64748b;">✕</button>
+      </div>
+
+      <div *ngIf="historialCargando()" style="text-align: center; color: #64748b; padding: 2rem;">Cargando historial...</div>
+
+      <table *ngIf="!historialCargando()" class="tabla">
+        <thead>
+          <tr><th>PACIENTE</th><th>INGRESO</th><th>EGRESO</th><th>ESTANCIA</th><th>OBSERVACIONES</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of historial()">
+            <td style="font-weight: 600;">{{ a.pacienteNombre }}</td>
+            <td style="white-space: nowrap;">{{ a.fechaIngreso | date:'dd/MM/yyyy HH:mm' }}</td>
+            <td style="white-space: nowrap;">
+              <span *ngIf="a.fechaEgreso">{{ a.fechaEgreso | date:'dd/MM/yyyy HH:mm' }}</span>
+              <span *ngIf="!a.fechaEgreso" class="badge e-ocup">Internado</span>
+            </td>
+            <td>{{ diasEstancia(a.fechaIngreso, a.fechaEgreso) }} día(s)</td>
+            <td style="color: #64748b;">{{ a.observaciones || '—' }}</td>
+          </tr>
+          <tr *ngIf="historial().length === 0">
+            <td colspan="5" style="text-align: center; color: #94a3b8; padding: 2rem;">Esta habitación aún no tiene historial.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>

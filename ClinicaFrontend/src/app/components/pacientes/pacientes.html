@@ -1,0 +1,162 @@
+<div style="padding: 2rem;">
+
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div>
+      <h2 style="font-size: 1.75rem; font-weight: 800; color: #0f172a; margin: 0;">Expediente Digital de Pacientes</h2>
+      <p style="color: #64748b; margin-top: 0.25rem;">Administra los datos generales e historial clínico de los pacientes.</p>
+    </div>
+    <button (click)="abrirNuevoPaciente()" style="background-color: #0284c7; color: #ffffff; border: none; padding: 0.75rem 1.25rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer;">
+      + Registrar Nuevo Paciente
+    </button>
+  </div>
+
+  <!-- Buscador -->
+  <div style="margin-bottom: 1.5rem; max-width: 400px;">
+    <input type="text" [(ngModel)]="busqueda" (input)="onBuscar()" placeholder="Buscar por nombre, apellidos, DPI o teléfono..."
+           style="width: 100%; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; outline: none; font-size: 0.875rem; box-sizing: border-box;">
+  </div>
+
+  <!-- Tabla de Pacientes -->
+  <div style="background-color: #ffffff; border-radius: 0.75rem; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+      <thead style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 700;">
+        <tr>
+          <th style="padding: 1rem;">ID</th>
+          <th style="padding: 1rem;">PACIENTE</th>
+          <th style="padding: 1rem;">GÉNERO</th>
+          <th style="padding: 1rem;">SANGRE</th>
+          <th style="padding: 1rem;">ALERGIAS</th>
+          <th style="padding: 1rem;">TELÉFONO</th>
+          <th style="padding: 1rem;">DIRECCIÓN</th>
+          <th style="padding: 1rem; text-align: center;">ACCIONES</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let p of listaPacientes()" style="border-bottom: 1px solid #f1f5f9;">
+          <td style="padding: 1rem; font-weight: 600; color: #64748b;">#{{ p.id }}</td>
+          <td style="padding: 1rem; font-weight: 700; color: #0f172a;">{{ p.nombres }} {{ p.apellidos }}</td>
+          <td style="padding: 1rem; color: #475569;">{{ p.genero || 'N/R' }}</td>
+          <td style="padding: 1rem;">
+            <span style="background-color: #fecdd3; color: #9f1239; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-weight: 700; font-size: 0.75rem;">
+              {{ p.tipoSangre || 'N/R' }}
+            </span>
+          </td>
+          <td style="padding: 1rem; color: #e11d48; font-weight: 600;">{{ p.alergias || 'Ninguna' }}</td>
+          <td style="padding: 1rem; color: #475569;">{{ p.telefono || 'N/A' }}</td>
+          <td style="padding: 1rem; color: #475569;">{{ p.direccion || 'N/A' }}</td>
+          <td style="padding: 1rem; text-align: center;">
+            <div style="display: flex; gap: 0.5rem; justify-content: center;">
+              <button (click)="abrirHistorialClinico(p)" style="padding: 0.375rem 0.75rem; background-color: #0284c7; color: white; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 600;">
+                Historial Clínico
+              </button>
+              <button (click)="abrirEditarPaciente(p)" style="padding: 0.375rem 0.75rem; background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 0.375rem; cursor: pointer; font-weight: 600;">
+                Editar
+              </button>
+              <button (click)="confirmarEliminacion(p)" style="padding: 0.375rem 0.75rem; background-color: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; border-radius: 0.375rem; cursor: pointer; font-weight: 600;">
+                Eliminar
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <tr *ngIf="listaPacientes().length === 0">
+          <td colspan="8" style="padding: 3rem; text-align: center; color: #94a3b8;">
+            No se encontraron pacientes registrados.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- MODAL DE FORMULARIO -->
+  <div *ngIf="mostrarModalForm()" style="position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100;">
+    <div style="background-color: #ffffff; width: 550px; max-width: calc(100% - 2rem); border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); max-height: 90vh; overflow-y: auto;">
+
+      <h3 style="margin-top: 0; margin-bottom: 1rem; font-size: 1.25rem; font-weight: 700; color: #0f172a;">
+        {{ editando ? 'Editar Paciente' : 'Registrar Nuevo Paciente' }}
+      </h3>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Nombres *</label>
+          <input type="text" [(ngModel)]="formPaciente.nombres" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-sizing: border-box;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Apellidos *</label>
+          <input type="text" [(ngModel)]="formPaciente.apellidos" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-sizing: border-box;">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Documento (DPI) *</label>
+          <input type="text" [(ngModel)]="formPaciente.documentoIdentificacion" maxlength="13" placeholder="13 dígitos" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-sizing: border-box;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Fecha de nacimiento *</label>
+          <input type="date" [(ngModel)]="formPaciente.fechaNacimiento" (change)="calcularEdad()" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-sizing: border-box;">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Género *</label>
+          <select [(ngModel)]="formPaciente.genero" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-sizing: border-box;">
+            <option value="" disabled>Seleccione...</option>
+            <option value="Femenino">Femenino</option>
+            <option value="Masculino">Masculino</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Edad calculada</label>
+          <input type="text" [value]="edadCalculada !== null ? edadCalculada + ' años' : 'N/A'" readonly style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; background-color: #f1f5f9; color: #64748b; box-sizing: border-box;">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Tipo de sangre</label>
+          <select [(ngModel)]="formPaciente.tipoSangre" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-sizing: border-box;">
+            <option value="" disabled>Seleccione...</option>
+            <option value="O positivo (O+)">O positivo (O+)</option>
+            <option value="O negativo (O-)">O negativo (O-)</option>
+            <option value="A positivo (A+)">A positivo (A+)</option>
+            <option value="A negativo (A-)">A negativo (A-)</option>
+            <option value="B positivo (B+)">B positivo (B+)</option>
+            <option value="B negativo (B-)">B negativo (B-)</option>
+            <option value="AB positivo (AB+)">AB positivo (AB+)</option>
+            <option value="AB negativo (AB-)">AB negativo (AB-)</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Alergias conocidas</label>
+          <input type="text" [(ngModel)]="formPaciente.alergias" placeholder="Ej. Penicilina, mariscos" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-sizing: border-box;">
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Teléfono *</label>
+        <input type="text" [(ngModel)]="formPaciente.telefono" placeholder="Ej. 5555-1234" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Dirección *</label>
+        <input type="text" [(ngModel)]="formPaciente.direccion" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-sizing: border-box;">
+      </div>
+
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Contacto de emergencia *</label>
+        <input type="text" [(ngModel)]="formPaciente.contactoEmergencia" placeholder="Nombre y teléfono" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-sizing: border-box;">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button (click)="cerrarModales()" style="padding: 0.625rem 1.25rem; border: 1px solid #cbd5e1; background: #ffffff; border-radius: 0.375rem; cursor: pointer; font-weight: 600;">Cancelar</button>
+        <button (click)="guardarPaciente()" [disabled]="procesando()" style="padding: 0.625rem 1.25rem; background: #0284c7; color: white; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 700;">
+          {{ procesando() ? 'Guardando...' : 'Guardar Paciente' }}
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</div>

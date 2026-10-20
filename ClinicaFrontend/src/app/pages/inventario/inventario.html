@@ -1,0 +1,352 @@
+<div style="padding: 2rem;">
+
+  <!-- Encabezado -->
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+    <div>
+      <h2 style="font-size: 1.75rem; font-weight: 800; color: #0f172a; margin: 0;">Inventario de Medicamentos</h2>
+      <p style="color: #64748b; margin-top: 0.25rem;">Catálogo, lotes por sucursal y bitácora de entradas y salidas.</p>
+    </div>
+    <div class="barra" style="margin: 0;">
+      <select [ngModel]="idSucursal()" (ngModelChange)="cambiarSucursal($event)" title="Sucursal">
+        <option *ngFor="let s of sucursales()" [ngValue]="s.id">📍 {{ s.nombre }}</option>
+      </select>
+      <button class="btn" (click)="abrirNuevoMedicamento()">+ Medicamento</button>
+      <button class="btn btn-primario" (click)="abrirNuevoLote()">+ Entrada de lote</button>
+    </div>
+  </div>
+
+  <!-- Alertas -->
+  <div class="tarjetas">
+    <button class="tarjeta" (click)="verStockBajo()" [style.border-color]="stockBajo().length ? '#fca5a5' : ''">
+      <span>⚠️ STOCK BAJO EL MÍNIMO</span>
+      <strong [style.color]="stockBajo().length ? '#b91c1c' : '#0f172a'">{{ stockBajo().length }}</strong>
+    </button>
+    <button class="tarjeta" (click)="verLotes('Por vencer')" [style.border-color]="porVencer().length ? '#fcd34d' : ''">
+      <span>⏳ LOTES POR VENCER (30 DÍAS)</span>
+      <strong [style.color]="porVencer().length ? '#b45309' : '#0f172a'">{{ porVencer().length }}</strong>
+    </button>
+    <button class="tarjeta" (click)="verLotes('Vencido')" [style.border-color]="vencidos().length ? '#fca5a5' : ''">
+      <span>⛔ LOTES VENCIDOS CON EXISTENCIA</span>
+      <strong [style.color]="vencidos().length ? '#b91c1c' : '#0f172a'">{{ vencidos().length }}</strong>
+    </button>
+    <div class="tarjeta" style="cursor: default;">
+      <span>💊 MEDICAMENTOS ACTIVOS</span>
+      <strong>{{ medicamentosActivos().length }}</strong>
+    </div>
+  </div>
+
+  <!-- Pestañas -->
+  <div class="tabs">
+    <button class="tab" [class.activa]="pestana() === 'medicamentos'" (click)="pestana.set('medicamentos')">Medicamentos</button>
+    <button class="tab" [class.activa]="pestana() === 'lotes'" (click)="pestana.set('lotes')">Lotes</button>
+    <button class="tab" [class.activa]="pestana() === 'movimientos'" (click)="pestana.set('movimientos')">Movimientos</button>
+  </div>
+
+  <!-- ═══ MEDICAMENTOS ═══ -->
+  <ng-container *ngIf="pestana() === 'medicamentos'">
+    <div class="barra">
+      <input type="text" [ngModel]="busquedaMed()" (ngModelChange)="busquedaMed.set($event)"
+             placeholder="Buscar por nombre, código, marca o categoría..." style="flex: 1; min-width: 240px;">
+      <select [ngModel]="filtroCategoria()" (ngModelChange)="filtroCategoria.set($event)">
+        <option [ngValue]="null">Todas las categorías</option>
+        <option *ngFor="let c of categorias()" [ngValue]="c.id">{{ c.nombre }}</option>
+      </select>
+      <label class="check"><input type="checkbox" [ngModel]="soloStockBajo()" (ngModelChange)="soloStockBajo.set($event)"> Solo stock bajo</label>
+      <label class="check"><input type="checkbox" [ngModel]="verInactivos()" (ngModelChange)="verInactivos.set($event)"> Ver inactivos</label>
+    </div>
+
+    <div class="tabla">
+      <table>
+        <thead>
+          <tr>
+            <th>CÓDIGO</th>
+            <th>MEDICAMENTO</th>
+            <th>CATEGORÍA</th>
+            <th>PRECIO</th>
+            <th>EXISTENCIA</th>
+            <th>PRÓX. VENCIMIENTO</th>
+            <th>ACCIONES</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of medicamentosFiltrados()" [style.opacity]="m.activo ? 1 : 0.55">
+            <td style="color: #64748b; font-weight: 600;">{{ m.codigo || '—' }}</td>
+            <td>
+              <strong>{{ m.nombre }}</strong>
+              <span *ngIf="m.requiereReceta" class="badge b-azul" style="margin-left: 0.25rem;">Receta</span>
+              <span *ngIf="!m.activo" class="badge b-gris" style="margin-left: 0.25rem;">Inactivo</span>
+              <br><small style="color: #64748b;">{{ m.marca || 'Sin marca' }}</small>
+            </td>
+            <td>{{ m.categoria || 'General' }}</td>
+            <td style="font-weight: 700;">Q{{ m.precioVenta | number:'1.2-2' }}</td>
+            <td>
+              <span class="badge" [ngClass]="m.existencia === 0 ? 'b-rojo' : m.existencia < m.stockMinimo ? 'b-amarillo' : 'b-verde'">
+                {{ m.existencia }} uds.
+              </span>
+              <small style="color: #94a3b8; display: block; margin-top: 0.25rem;">Mín. {{ m.stockMinimo }}</small>
+              <small *ngIf="m.cantidadVencida > 0" style="color: #b91c1c; display: block;">{{ m.cantidadVencida }} vencidas</small>
+            </td>
+            <td>{{ m.proximoVencimiento ? (m.proximoVencimiento | date:'dd/MM/yyyy') : '—' }}</td>
+            <td class="acciones">
+              <button (click)="editarMedicamento(m)">Editar</button>
+              <button (click)="verLotesDe(m)">Lotes</button>
+              <button *ngIf="m.activo" class="peligro" (click)="eliminarMedicamento(m)">Eliminar</button>
+            </td>
+          </tr>
+          <tr *ngIf="medicamentosFiltrados().length === 0">
+            <td colspan="7" class="vacio">No hay medicamentos que coincidan con los filtros.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+
+  <!-- ═══ LOTES ═══ -->
+  <ng-container *ngIf="pestana() === 'lotes'">
+    <div class="barra">
+      <input type="text" [ngModel]="busquedaLote()" (ngModelChange)="busquedaLote.set($event)"
+             placeholder="Buscar por número de lote o medicamento..." style="flex: 1; min-width: 240px;">
+      <select [ngModel]="filtroMedicamento()" (ngModelChange)="filtroMedicamento.set($event)">
+        <option [ngValue]="null">Todos los medicamentos</option>
+        <option *ngFor="let m of medicamentos()" [ngValue]="m.id">{{ m.nombre }}</option>
+      </select>
+      <select [ngModel]="filtroEstado()" (ngModelChange)="filtroEstado.set($event)">
+        <option *ngFor="let e of estadosLote" [ngValue]="e">{{ e === 'Todos' ? 'Todos los estados' : e }}</option>
+      </select>
+    </div>
+
+    <div class="tabla">
+      <table>
+        <thead>
+          <tr>
+            <th>LOTE</th>
+            <th>MEDICAMENTO</th>
+            <th>INGRESO</th>
+            <th>VENCIMIENTO</th>
+            <th>INICIAL</th>
+            <th>DISPONIBLE</th>
+            <th>ESTADO</th>
+            <th>ACCIONES</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let l of lotesFiltrados()">
+            <td style="font-weight: 700;">{{ l.numeroLote }}</td>
+            <td>{{ l.medicamento }}</td>
+            <td>{{ l.fechaIngreso | date:'dd/MM/yyyy' }}</td>
+            <td>{{ l.fechaVencimiento | date:'dd/MM/yyyy' }}</td>
+            <td>{{ l.cantidadInicial }}</td>
+            <td style="font-weight: 700;">{{ l.cantidadDisponible }}</td>
+            <td><span class="badge" [ngClass]="claseEstado(l.estado)">{{ l.estado }}</span></td>
+            <td class="acciones">
+              <button *ngIf="l.cantidadDisponible > 0" (click)="abrirSalida(l)">Salida</button>
+              <button (click)="editarLote(l)">Editar</button>
+              <button *ngIf="!l.tieneSalidas" class="peligro" (click)="eliminarLote(l)">Eliminar</button>
+            </td>
+          </tr>
+          <tr *ngIf="lotesFiltrados().length === 0">
+            <td colspan="8" class="vacio">No hay lotes que coincidan con los filtros.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+
+  <!-- ═══ MOVIMIENTOS ═══ -->
+  <ng-container *ngIf="pestana() === 'movimientos'">
+    <div class="tabla">
+      <table>
+        <thead>
+          <tr><th>FECHA</th><th>MEDICAMENTO</th><th>LOTE</th><th>TIPO</th><th>CANTIDAD</th><th>USUARIO</th><th>DETALLE</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let mv of movimientos()">
+            <td style="white-space: nowrap;">{{ mv.fecha | date:'dd/MM/yyyy HH:mm' }}</td>
+            <td>{{ mv.medicamento }}</td>
+            <td>{{ mv.numeroLote }}</td>
+            <td><span class="badge" [ngClass]="claseMovimiento(mv.tipo)">{{ mv.tipo }}</span></td>
+            <td style="font-weight: 700;" [style.color]="mv.cantidad > 0 ? '#15803d' : '#b91c1c'">
+              {{ mv.cantidad > 0 ? '+' : '' }}{{ mv.cantidad }}
+            </td>
+            <td>{{ mv.usuario || '—' }}</td>
+            <td style="color: #64748b;">{{ mv.idVenta ? 'Venta #' + mv.idVenta : (mv.observacion || '—') }}</td>
+          </tr>
+          <tr *ngIf="movimientos().length === 0">
+            <td colspan="7" class="vacio">Aún no hay movimientos registrados en esta sucursal.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+
+  <!-- ═══ MODAL MEDICAMENTO ═══ -->
+  <div *ngIf="modalMedicamento()" class="overlay">
+    <div class="modal">
+      <h3>{{ editandoMedId ? 'Editar Medicamento' : 'Nuevo Medicamento' }}</h3>
+      <form class="form" (ngSubmit)="guardarMedicamento()">
+        <div class="fila">
+          <div class="campo" style="flex: 0.6;">
+            <label>Código</label>
+            <input type="text" [(ngModel)]="formMed.codigo" name="codigo" placeholder="Ej. MED-001">
+          </div>
+          <div class="campo">
+            <label>Nombre *</label>
+            <input type="text" [(ngModel)]="formMed.nombre" name="nombre" placeholder="Ej. Paracetamol 500mg">
+          </div>
+        </div>
+
+        <div class="fila">
+          <div class="campo">
+            <label>Marca</label>
+            <input type="text" [(ngModel)]="formMed.marca" name="marca" list="lista-marcas" placeholder="Ej. Bayer">
+            <datalist id="lista-marcas">
+              <option *ngFor="let mk of marcas()" [value]="mk"></option>
+            </datalist>
+          </div>
+          <div class="campo">
+            <label>Categoría</label>
+            <select [(ngModel)]="formMed.idCategoria" name="idCategoria">
+              <option [ngValue]="null">General (sin categoría)</option>
+              <option *ngFor="let c of categorias()" [ngValue]="c.id">{{ c.nombre }}</option>
+              <option ngValue="NUEVA">+ Nueva categoría...</option>
+            </select>
+            <input *ngIf="formMed.idCategoria === 'NUEVA'" type="text" [(ngModel)]="nuevaCategoria" name="nuevaCategoria"
+                   placeholder="Nombre de la nueva categoría" style="margin-top: 0.5rem; border-color: #0284c7;">
+          </div>
+        </div>
+
+        <div class="fila">
+          <div class="campo">
+            <label>Precio de venta (Q) *</label>
+            <input type="number" min="0" step="0.01" [(ngModel)]="formMed.precioVenta" name="precioVenta">
+          </div>
+          <div class="campo">
+            <label>Stock mínimo *</label>
+            <input type="number" min="0" step="1" [(ngModel)]="formMed.stockMinimo" name="stockMinimo">
+          </div>
+        </div>
+
+        <div class="campo">
+          <label>URL de la imagen</label>
+          <input type="text" [(ngModel)]="formMed.imagenUrl" name="imagenUrl" placeholder="https://...">
+        </div>
+
+        <div class="campo">
+          <label>Descripción</label>
+          <textarea rows="3" [(ngModel)]="formMed.descripcion" name="descripcion" placeholder="Presentación, uso, indicaciones..."></textarea>
+        </div>
+
+        <div class="fila">
+          <label class="check"><input type="checkbox" [(ngModel)]="formMed.requiereReceta" name="requiereReceta"> Requiere receta médica</label>
+          <label class="check" *ngIf="editandoMedId"><input type="checkbox" [(ngModel)]="formMed.activo" name="activo"> Activo</label>
+        </div>
+
+        <div class="pie">
+          <button type="button" class="btn" (click)="cerrarModales()">Cancelar</button>
+          <button type="submit" class="btn btn-primario" [disabled]="procesando()">{{ procesando() ? 'Guardando...' : 'Guardar' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL LOTE ═══ -->
+  <div *ngIf="modalLote()" class="overlay">
+    <div class="modal">
+      <h3>{{ editandoLoteId ? 'Editar Lote' : 'Registrar Entrada de Lote' }}</h3>
+      <form class="form" (ngSubmit)="guardarLote()">
+        <div class="campo">
+          <label>Medicamento *</label>
+          <select [(ngModel)]="formLote.idMedicamento" name="idMedicamento" [disabled]="!!editandoLoteId">
+            <option [ngValue]="null" disabled>Seleccione...</option>
+            <option *ngFor="let m of (editandoLoteId ? medicamentos() : medicamentosActivos())" [ngValue]="m.id">
+              {{ m.nombre }}{{ m.marca ? ' — ' + m.marca : '' }}
+            </option>
+          </select>
+        </div>
+
+        <div class="fila">
+          <div class="campo">
+            <label>Sucursal *</label>
+            <select [(ngModel)]="formLote.idSucursal" name="idSucursal" [disabled]="!!editandoLoteId">
+              <option [ngValue]="null" disabled>Seleccione...</option>
+              <option *ngFor="let s of sucursales()" [ngValue]="s.id">{{ s.nombre }}</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label>Número de lote *</label>
+            <input type="text" [(ngModel)]="formLote.numeroLote" name="numeroLote" placeholder="Ej. L-2026-0145">
+          </div>
+        </div>
+
+        <div class="fila">
+          <div class="campo">
+            <label>Fecha de ingreso *</label>
+            <input type="date" [(ngModel)]="formLote.fechaIngreso" name="fechaIngreso" [max]="hoy">
+          </div>
+          <div class="campo">
+            <label>Fecha de vencimiento *</label>
+            <input type="date" [(ngModel)]="formLote.fechaVencimiento" name="fechaVencimiento">
+          </div>
+          <div class="campo" style="flex: 0.7;">
+            <label>Cantidad *</label>
+            <input type="number" min="1" step="1" [(ngModel)]="formLote.cantidad" name="cantidad" [disabled]="!!editandoLoteId">
+          </div>
+        </div>
+
+        <small *ngIf="editandoLoteId" style="color: #64748b;">
+          El medicamento, la sucursal y la cantidad no se editan para conservar la trazabilidad.
+          Para corregir existencias, registre una salida tipo Merma.
+        </small>
+
+        <div class="pie">
+          <button type="button" class="btn" (click)="cerrarModales()">Cancelar</button>
+          <button type="submit" class="btn btn-primario" [disabled]="procesando()">{{ procesando() ? 'Guardando...' : 'Guardar' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL SALIDA ═══ -->
+  <div *ngIf="modalSalida() && loteSalida" class="overlay">
+    <div class="modal" style="max-width: 480px;">
+      <h3>Registrar Salida</h3>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.875rem;">
+        <strong>{{ loteSalida.medicamento }}</strong> — Lote {{ loteSalida.numeroLote }}<br>
+        Disponible: <strong>{{ loteSalida.cantidadDisponible }}</strong> · Vence: {{ loteSalida.fechaVencimiento | date:'dd/MM/yyyy' }}
+        <span class="badge" [ngClass]="claseEstado(loteSalida.estado)" style="margin-left: 0.25rem;">{{ loteSalida.estado }}</span>
+      </div>
+
+      <form class="form" (ngSubmit)="guardarSalida()">
+        <div class="fila">
+          <div class="campo">
+            <label>Tipo de salida *</label>
+            <select [(ngModel)]="formSalida.tipo" name="tipo">
+              <option *ngFor="let t of tiposSalida" [value]="t">{{ t }}</option>
+            </select>
+          </div>
+          <div class="campo" style="flex: 0.6;">
+            <label>Cantidad *</label>
+            <input type="number" min="1" step="1" [max]="loteSalida.cantidadDisponible" [(ngModel)]="formSalida.cantidad" name="cantidad">
+          </div>
+        </div>
+
+        <div class="campo">
+          <label>Motivo / observación *</label>
+          <textarea rows="3" [(ngModel)]="formSalida.observacion" name="observacion"
+                    placeholder="Ej. Aplicado a paciente en habitación 203"></textarea>
+        </div>
+
+        <small *ngIf="loteSalida.estado === 'Vencido'" style="color: #b91c1c;">
+          ⛔ Lote vencido: no puede usarse clínicamente, solo darse de baja.
+        </small>
+
+        <div class="pie">
+          <button type="button" class="btn" (click)="cerrarModales()">Cancelar</button>
+          <button type="submit" class="btn btn-primario" [disabled]="procesando()">{{ procesando() ? 'Registrando...' : 'Registrar salida' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>

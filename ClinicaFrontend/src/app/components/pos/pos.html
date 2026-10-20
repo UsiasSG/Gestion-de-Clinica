@@ -1,0 +1,253 @@
+<div style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
+
+  <!-- BARRA DE SESIÓN -->
+  <header style="background-color: #0f172a; color: #ffffff; padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+    <div>
+      <h3 style="margin: 0; font-size: 1.125rem;">Punto de Venta / Farmacia</h3>
+      <small style="color: #38bdf8;">📍 {{ usuario()?.nombreSucursal || 'Sin sucursal asignada' }}</small>
+    </div>
+    <div style="text-align: right; font-size: 0.875rem;">
+      Atendido por: <strong>{{ usuario()?.nombreUsuario || '—' }}</strong>
+    </div>
+  </header>
+
+  <div style="flex: 1; display: flex; overflow: hidden;">
+
+    <!-- CATÁLOGO -->
+    <section style="flex: 1; padding: 1.5rem 2rem; overflow-y: auto; border-right: 1px solid #e2e8f0;">
+      <p style="color: #64748b; margin: 0 0 1rem;">
+        Selecciona productos para agregarlos a la venta. Solo se muestran existencias vigentes de tu sucursal.
+      </p>
+
+      <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+        <input type="text" [ngModel]="busquedaProducto()" (ngModelChange)="busquedaProducto.set($event)"
+               placeholder="Buscar por nombre, código o marca..."
+               style="flex: 1; padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #cbd5e1; font-size: 0.875rem;">
+        <select [ngModel]="categoriaSeleccionada()" (ngModelChange)="categoriaSeleccionada.set($event)"
+                style="padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #cbd5e1; background: #fff; font-size: 0.875rem;">
+          <option *ngFor="let c of categorias()" [value]="c">{{ c }}</option>
+        </select>
+      </div>
+
+      <div *ngIf="cargando()" style="text-align: center; color: #64748b; padding: 3rem;">Cargando catálogo...</div>
+
+      <div *ngIf="!cargando() && errorCarga()" style="background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 1rem; border-radius: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+        <span>{{ errorCarga() }}</span>
+        <button (click)="cargarProductos()" style="background: #b91c1c; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 600; cursor: pointer;">Reintentar</button>
+      </div>
+
+      <div *ngIf="!cargando() && !errorCarga()"
+           style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; align-content: start;">
+        <div *ngFor="let prod of productosFiltrados()" class="producto" [class.agotado]="prod.stock === 0" (click)="agregarAlCarrito(prod)">
+          <span *ngIf="cantidadEnCarrito(prod.id) > 0" class="en-carrito">{{ cantidadEnCarrito(prod.id) }}</span>
+          <div>
+            <span style="font-size: 0.7rem; font-weight: 700; color: #64748b;">{{ prod.codigo }}</span>
+            <h4 style="margin: 0.25rem 0; font-size: 0.95rem; font-weight: 700; color: #0f172a;">{{ prod.nombre }}</h4>
+            <small *ngIf="prod.marca" style="color: #64748b; display: block; margin-bottom: 0.35rem;">{{ prod.marca }}</small>
+            <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
+              <span class="badge b-gris">{{ prod.categoria }}</span>
+              <span *ngIf="prod.requiereReceta" class="badge b-azul">Receta</span>
+              <span *ngIf="prod.stock > 0 && prod.stockMinimo != null && prod.stock < prod.stockMinimo" class="badge b-ambar">Stock bajo</span>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; border-top: 1px solid #f1f5f9; padding-top: 0.5rem;">
+            <span style="font-size: 1.125rem; font-weight: 800; color: #0284c7;">Q{{ prod.precio | number:'1.2-2' }}</span>
+            <span style="font-size: 0.75rem; font-weight: 600;" [style.color]="prod.stock > 0 ? '#166534' : '#b91c1c'">
+              {{ prod.stock > 0 ? prod.stock + ' disp.' : 'Agotado' }}
+            </span>
+          </div>
+        </div>
+
+        <div *ngIf="productosFiltrados().length === 0" style="grid-column: 1 / -1; text-align: center; color: #94a3b8; padding: 3rem;">
+          No se encontraron productos.
+        </div>
+      </div>
+    </section>
+
+    <!-- ORDEN ACTUAL -->
+    <section style="width: 380px; background-color: #ffffff; padding: 1.5rem; display: flex; flex-direction: column; flex-shrink: 0;">
+
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1rem;">
+        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #0f172a;">
+          Orden Actual <small *ngIf="totalArticulos() > 0" style="color: #64748b; font-weight: 600; font-size: 0.8rem;">({{ totalArticulos() }} art.)</small>
+        </h3>
+        <button (click)="limpiarCarrito()" style="background: none; border: none; color: #ef4444; font-size: 0.875rem; font-weight: 600; cursor: pointer;">Limpiar</button>
+      </div>
+
+      <!-- Paciente -->
+      <div class="campo" style="margin-bottom: 1.25rem; position: relative;">
+        <label>Paciente / Cliente (opcional)</label>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" [ngModel]="busquedaPaciente" (ngModelChange)="onBuscarPaciente($event)"
+                 (focus)="mostrarDropdown.set(pacientes().length > 0)" (blur)="mostrarDropdown.set(false)"
+                 placeholder="Buscar por nombre, DPI o teléfono...">
+          <button *ngIf="pacienteSeleccionado() || busquedaPaciente" type="button" (click)="limpiarPaciente()"
+                  style="padding: 0.5rem 0.75rem; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 0.375rem; cursor: pointer;">
+            ✕
+          </button>
+        </div>
+        <small *ngIf="pacienteSeleccionado() as p" style="color: #15803d; display: block; margin-top: 0.25rem;">
+          ✓ {{ p.nombreCompleto }} · DPI {{ p.dpi || 'N/R' }}
+        </small>
+
+        <div *ngIf="mostrarDropdown() && pacientes().length > 0"
+             style="position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #cbd5e1; border-radius: 0.375rem; max-height: 200px; overflow-y: auto; z-index: 50; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <div *ngFor="let p of pacientes()" class="opcion" (mousedown)="seleccionarPaciente(p)">
+            <strong style="font-size: 0.875rem; color: #0f172a; display: block;">{{ p.nombreCompleto }}</strong>
+            <span style="font-size: 0.75rem; color: #64748b;">DPI: {{ p.dpi || 'N/R' }} · Tel: {{ p.telefono || 'N/R' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Carrito -->
+      <div style="flex: 1; overflow-y: auto; margin-bottom: 1rem;">
+        <div *ngIf="carrito().length === 0" style="text-align: center; color: #94a3b8; padding: 2rem 0;">
+          El carrito está vacío.<br>Haz clic en los medicamentos para agregarlos.
+        </div>
+
+        <div *ngFor="let item of carrito()" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0; border-bottom: 1px solid #f1f5f9;">
+          <div style="flex: 1; min-width: 0;">
+            <h5 style="margin: 0; font-size: 0.875rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.producto.nombre }}</h5>
+            <span style="font-size: 0.75rem; color: #64748b;">Q{{ item.producto.precio | number:'1.2-2' }} c/u</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.25rem;">
+            <button class="btn-cant" (click)="actualizarCantidad(item, -1)">−</button>
+            <span style="font-size: 0.875rem; font-weight: 700; width: 24px; text-align: center;">{{ item.cantidad }}</span>
+            <button class="btn-cant" (click)="actualizarCantidad(item, 1)" [disabled]="item.cantidad >= item.producto.stock">+</button>
+          </div>
+          <div style="width: 70px; text-align: right; font-weight: 700; font-size: 0.875rem;">Q{{ item.subtotal | number:'1.2-2' }}</div>
+          <button (click)="quitarDelCarrito(item)" title="Quitar" style="background: none; border: none; color: #94a3b8; cursor: pointer;">✕</button>
+        </div>
+      </div>
+
+      <!-- Totales -->
+      <div style="border-top: 2px solid #e2e8f0; padding-top: 1rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.875rem; color: #64748b;">
+          <span>Subtotal</span><span>Q{{ subtotal() | number:'1.2-2' }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.875rem; color: #64748b;">
+          <span>IVA (12%)</span><span>Q{{ impuesto() | number:'1.2-2' }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 1rem; font-size: 1.25rem; font-weight: 800; color: #0f172a;">
+          <span>Total</span><span style="color: #0284c7;">Q{{ total() | number:'1.2-2' }}</span>
+        </div>
+
+        <button (click)="iniciarProcesoCobro()" [disabled]="carrito().length === 0" [style.opacity]="carrito().length === 0 ? '0.5' : '1'"
+                style="width: 100%; padding: 0.875rem; background-color: #0284c7; color: #ffffff; border: none; border-radius: 0.5rem; font-size: 1rem; font-weight: 700; cursor: pointer;">
+          Proceder al Cobro (Q{{ total() | number:'1.2-2' }})
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- MODAL DE COBRO -->
+  <div *ngIf="modalCobro()" class="overlay">
+    <div class="modal">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem; margin-bottom: 1rem;">
+        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #0f172a;">Datos de Facturación y Pago</h3>
+        <button (click)="cerrarModal()" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 0.75rem; margin-bottom: 1rem;">
+        <div class="campo"><label>NIT *</label><input type="text" [(ngModel)]="nit" placeholder="CF"></div>
+        <div class="campo"><label>Nombre a facturar *</label><input type="text" [(ngModel)]="nombreFactura"></div>
+      </div>
+
+      <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 0.5rem; padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <span style="font-weight: 600; color: #075985;">Total a cobrar</span>
+        <span style="font-size: 1.5rem; font-weight: 800; color: #0284c7;">Q{{ total() | number:'1.2-2' }}</span>
+      </div>
+
+      <div class="campo"><label>Método de pago</label></div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem;">
+        <button *ngFor="let m of metodosPago" type="button" class="metodo" [class.activo]="metodoPago === m.valor" (click)="metodoPago = m.valor">
+          {{ m.etiqueta }}
+        </button>
+      </div>
+
+      <div style="background: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; margin-bottom: 1.25rem;">
+        <div *ngIf="metodoPago === 'Efectivo'">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <label style="font-size: 0.875rem; font-weight: 600;">Efectivo recibido (Q):</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" (click)="pagoExacto()" style="padding: 0.375rem 0.6rem; border: 1px solid #cbd5e1; background: #fff; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem; font-weight: 600;">Exacto</button>
+              <input type="number" min="0" step="0.01" [(ngModel)]="montoEfectivo"
+                     style="width: 110px; padding: 0.375rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-weight: 700; text-align: right;">
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 1rem; font-weight: 700; padding-top: 0.5rem; border-top: 1px solid #e2e8f0;"
+               [style.color]="cambio < 0 ? '#b91c1c' : '#166534'">
+            <span>{{ cambio < 0 ? 'Falta:' : 'Cambio a entregar:' }}</span>
+            <span>Q{{ (cambio < 0 ? -cambio : cambio) | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div *ngIf="metodoPago === 'Tarjeta'" class="campo">
+          <label>Número de voucher / autorización *</label>
+          <input type="text" [(ngModel)]="numeroVoucher" placeholder="Ej. 987654">
+        </div>
+
+        <div *ngIf="metodoPago === 'Transferencia'" class="campo">
+          <label>Número de referencia bancaria *</label>
+          <input type="text" [(ngModel)]="referenciaTransferencia" placeholder="Ej. REF-458912">
+        </div>
+      </div>
+
+      <button (click)="confirmarVenta()" [disabled]="procesando()" [style.opacity]="procesando() ? '0.6' : '1'"
+              style="width: 100%; padding: 0.875rem; background-color: #16a34a; color: #ffffff; border: none; border-radius: 0.5rem; font-size: 1rem; font-weight: 700; cursor: pointer;">
+        {{ procesando() ? 'Procesando venta...' : 'Completar Venta (Q' + (total() | number:'1.2-2') + ')' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL DE TICKET -->
+  <div *ngIf="ticket() as t" class="overlay">
+    <div class="modal" style="width: 400px;">
+      <div class="no-imprimir" style="text-align: center; margin-bottom: 1rem;">
+        <div style="font-size: 2rem;">✅</div>
+        <h3 style="margin: 0.25rem 0;">Venta registrada</h3>
+        <small style="color: #64748b;">El inventario se actualizó automáticamente.</small>
+      </div>
+
+      <div class="ticket area-impresion">
+        <div style="text-align: center;">
+          <strong style="font-size: 1rem;">CLÍNICA MÉDICA</strong><br>
+          {{ t.sucursal }}<br>
+          Comprobante de venta No. {{ t.numero }}<br>
+          {{ t.fecha | date:'dd/MM/yyyy HH:mm' }}
+        </div>
+        <hr>
+        <div>Cajero: {{ t.cajero }}</div>
+        <div>NIT: {{ t.nit }}</div>
+        <div>Nombre: {{ t.nombre }}</div>
+        <hr>
+        <div *ngFor="let i of t.items" style="margin-bottom: 0.35rem;">
+          <div>{{ i.nombre }}</div>
+          <div class="fila"><span>{{ i.cantidad }} x Q{{ i.precio | number:'1.2-2' }}</span><span>Q{{ i.subtotal | number:'1.2-2' }}</span></div>
+        </div>
+        <hr>
+        <div class="fila"><span>Subtotal</span><span>Q{{ t.subtotal | number:'1.2-2' }}</span></div>
+        <div class="fila"><span>IVA (12%)</span><span>Q{{ t.impuesto | number:'1.2-2' }}</span></div>
+        <div class="fila" style="font-weight: 700; font-size: 0.95rem;"><span>TOTAL</span><span>Q{{ t.total | number:'1.2-2' }}</span></div>
+        <hr>
+        <div class="fila"><span>Pago</span><span>{{ t.metodoPago }}</span></div>
+        <ng-container *ngIf="t.efectivo != null">
+          <div class="fila"><span>Efectivo</span><span>Q{{ t.efectivo | number:'1.2-2' }}</span></div>
+          <div class="fila"><span>Cambio</span><span>Q{{ t.cambio | number:'1.2-2' }}</span></div>
+        </ng-container>
+        <div *ngIf="t.referencia" class="fila"><span>Referencia</span><span>{{ t.referencia }}</span></div>
+        <hr>
+        <div style="text-align: center;">
+          ¡Gracias por su compra!<br>
+          <small>Este comprobante no sustituye a la factura electrónica (FEL).</small>
+        </div>
+      </div>
+
+      <div class="no-imprimir" style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+        <button (click)="imprimirTicket()" style="flex: 1; padding: 0.75rem; background: #0f172a; color: #fff; border: none; border-radius: 0.5rem; font-weight: 700; cursor: pointer;">🖨️ Imprimir</button>
+        <button (click)="nuevaVenta()" style="flex: 1; padding: 0.75rem; background: #0284c7; color: #fff; border: none; border-radius: 0.5rem; font-weight: 700; cursor: pointer;">Nueva venta</button>
+      </div>
+    </div>
+  </div>
+
+</div>

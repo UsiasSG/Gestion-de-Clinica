@@ -1,0 +1,108 @@
+<div style="padding: 2rem;">
+
+  <div class="cab">
+    <div>
+      <h2 style="font-size: 1.75rem; font-weight: 800; color: #0f172a; margin: 0;">Roles y Permisos</h2>
+      <p style="color: #64748b; margin-top: 0.25rem;">Defina qué puede consultar, crear, modificar y eliminar cada rol en cada módulo.</p>
+    </div>
+    <button *ngIf="permisos.puede('ROLES', 'crear')" class="btn btn-primario" (click)="abrirNuevoRol()">+ Nuevo rol</button>
+  </div>
+
+  <div class="contenedor">
+
+    <!-- Lista de roles -->
+    <aside class="lista">
+      <button *ngFor="let r of roles()" class="item" [class.activo]="rolSeleccionado()?.id === r.id" (click)="seleccionarRol(r)">
+        <strong>{{ r.nombre }}</strong>
+        <small>{{ r.descripcion || 'Sin descripción' }}</small>
+        <div class="contadores">
+          <span>👤 {{ r.usuarios }} usuario(s)</span>
+          <span>🔓 {{ r.modulosConAcceso }} módulo(s)</span>
+        </div>
+      </button>
+      <div *ngIf="roles().length === 0" class="vacio">No hay roles registrados.</div>
+    </aside>
+
+    <!-- Matriz -->
+    <section class="detalle" *ngIf="rolSeleccionado() as rol; else sinRol">
+      <div class="detalle-cab">
+        <div>
+          <h3 style="margin: 0;">{{ rol.nombre }}</h3>
+          <small style="color: #64748b;">{{ rol.descripcion || 'Sin descripción' }}</small>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <span *ngIf="sinGuardar()" class="aviso">● Cambios sin guardar</span>
+          <button *ngIf="permisos.puede('ROLES', 'modificar')" class="btn" (click)="editarRol(rol)">Editar</button>
+          <button *ngIf="permisos.puede('ROLES', 'eliminar')" class="btn peligro" (click)="eliminarRol(rol)">Eliminar</button>
+          <button *ngIf="permisos.puede('ROLES', 'modificar')" class="btn btn-verde" (click)="guardarMatriz()" [disabled]="!sinGuardar() || procesando()">
+            {{ procesando() ? 'Guardando...' : 'Guardar permisos' }}
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="cargandoMatriz()" class="vacio">Cargando permisos...</div>
+
+      <table *ngIf="!cargandoMatriz()" class="matriz">
+        <thead>
+          <tr>
+            <th style="text-align: left;">MÓDULO</th>
+            <th *ngFor="let a of acciones">
+              {{ etiquetas[a] }}<br>
+              <input type="checkbox" title="Marcar toda la columna"
+                     [checked]="columnaCompleta(a)" [disabled]="!permisos.puede('ROLES', 'modificar')"
+                     (change)="toggleColumna(a, $any($event.target).checked)">
+            </th>
+            <th>Todos</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let f of matriz()">
+            <td style="text-align: left;">
+              <strong>{{ f.modulo }}</strong><br>
+              <small style="color: #94a3b8;">{{ f.codigo }}</small>
+            </td>
+            <td *ngFor="let a of acciones">
+              <input type="checkbox" [checked]="f[a]" [disabled]="!permisos.puede('ROLES', 'modificar')"
+                     (change)="cambiar(f, a, $any($event.target).checked)">
+            </td>
+            <td>
+              <input type="checkbox" [checked]="filaCompleta(f)" [disabled]="!permisos.puede('ROLES', 'modificar')"
+                     (change)="toggleFila(f, $any($event.target).checked)">
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="nota">
+        Al marcar Crear, Modificar o Eliminar se activa Consultar automáticamente. Los cambios se aplican de inmediato
+        en el menú de los usuarios conectados con este rol.
+      </p>
+    </section>
+
+    <ng-template #sinRol>
+      <section class="detalle vacio">Seleccione un rol para ver sus permisos.</section>
+    </ng-template>
+  </div>
+
+  <!-- Modal crear / editar rol -->
+  <div *ngIf="modalRol()" class="overlay">
+    <div class="modal">
+      <h3 style="margin-top: 0;">{{ editandoRolId ? 'Editar rol' : 'Nuevo rol' }}</h3>
+      <form (ngSubmit)="guardarRol()" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div class="campo">
+          <label>Nombre *</label>
+          <input type="text" [(ngModel)]="formRol.nombre" name="nombre" placeholder="Ej. Recepcionista">
+        </div>
+        <div class="campo">
+          <label>Descripción</label>
+          <input type="text" [(ngModel)]="formRol.descripcion" name="descripcion" placeholder="Ej. Registro de pacientes y citas">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" class="btn" (click)="modalRol.set(false)">Cancelar</button>
+          <button type="submit" class="btn btn-primario" [disabled]="procesando()">{{ procesando() ? 'Guardando...' : 'Guardar' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>

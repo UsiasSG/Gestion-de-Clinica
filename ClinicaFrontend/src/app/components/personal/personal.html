@@ -1,0 +1,179 @@
+<div style="padding: 2rem;">
+
+  <!-- Encabezado -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+      <h2 style="font-size: 1.75rem; font-weight: 700; color: #0f172a; margin: 0;">Gestión de Personal y Credenciales</h2>
+      <p style="color: #64748b; margin-top: 0.25rem;">Administra médicos, enfermeros, personal administrativo, credenciales y roles.</p>
+    </div>
+    <button (click)="abrirModalCrear()" class="btn btn-primario" style="padding: 0.75rem 1.25rem;">
+      + Registrar Empleado
+    </button>
+  </div>
+
+  <!-- Búsqueda -->
+  <div style="margin-bottom: 1.5rem;">
+    <input type="text" [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)"
+           placeholder="Buscar por nombre, correo, teléfono, puesto, especialidad o sucursal..."
+           style="width: 100%; max-width: 480px; padding: 0.625rem 1rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; box-sizing: border-box;">
+  </div>
+
+  <!-- Tabla -->
+  <div style="background-color: #ffffff; border-radius: 0.75rem; border: 1px solid #e2e8f0; overflow: hidden;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+      <thead>
+        <tr style="background-color: #f1f5f9; color: #475569;">
+          <th style="padding: 1rem;">EMPLEADO</th>
+          <th style="padding: 1rem;">CONTACTO</th>
+          <th style="padding: 1rem;">PUESTO / ESPECIALIDAD</th>
+          <th style="padding: 1rem;">SUCURSAL</th>
+          <th style="padding: 1rem;">ACCESO Y ROL</th>
+          <th style="padding: 1rem; text-align: center;">ACCIONES</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let e of empleadosFiltrados()" style="border-bottom: 1px solid #f1f5f9;">
+          <td style="padding: 1rem; font-weight: 600; color: #0f172a;">{{ e.nombreCompleto }}</td>
+          <td style="padding: 1rem;">
+            <div>{{ e.correo || 'Sin correo' }}</div>
+            <small style="color: #64748b;">📞 {{ e.telefono || 'Sin teléfono' }}</small>
+          </td>
+          <td style="padding: 1rem;">
+            <div><strong>{{ e.tipoEmpleado }}</strong></div>
+            <small style="color: #64748b;">
+              {{ e.tipoEmpleado === 'Doctor' ? (e.especialidadNombre || 'Sin especialidad') : (e.puesto || 'Sin puesto') }}
+            </small>
+          </td>
+          <td style="padding: 1rem;">{{ e.sucursalNombre || 'Sin asignar' }}</td>
+          <td style="padding: 1rem;">
+            <span [style.background-color]="e.tieneAcceso ? '#dcfce7' : '#f1f5f9'"
+                  [style.color]="e.tieneAcceso ? '#15803d' : '#64748b'"
+                  style="padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700;">
+              {{ e.tieneAcceso ? e.nombreUsuario + ' (' + (e.rolNombre || 'Sin rol') + ')' : (e.nombreUsuario ? 'Acceso desactivado' : 'Sin cuenta') }}
+            </span>
+          </td>
+          <td style="padding: 1rem; text-align: center;">
+            <button (click)="editarEmpleado(e)" style="background: none; border: none; color: #0284c7; cursor: pointer; font-weight: 600; margin-right: 0.5rem;">Editar</button>
+            <button (click)="eliminarEmpleado(e)" style="background: none; border: none; color: #ef4444; cursor: pointer; font-weight: 600;">Eliminar</button>
+          </td>
+        </tr>
+
+        <tr *ngIf="empleadosFiltrados().length === 0">
+          <td colspan="6" style="padding: 3rem; text-align: center; color: #94a3b8;">No se encontraron empleados.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal registro / edición -->
+  <div *ngIf="mostrarModal()" style="position: fixed; inset: 0; background-color: rgba(15, 23, 42, 0.5); display: flex; align-items: center; justify-content: center; z-index: 50;">
+    <div style="background-color: #ffffff; width: 100%; max-width: 640px; border-radius: 0.75rem; padding: 2rem; max-height: 90vh; overflow-y: auto;">
+      <h3 style="margin-top: 0; font-size: 1.25rem; font-weight: 700;">{{ editandoId ? 'Editar Empleado' : 'Registrar Empleado' }}</h3>
+
+      <form (ngSubmit)="guardarEmpleado()" style="display: flex; flex-direction: column; gap: 1rem;">
+
+        <div class="fila">
+          <div class="campo">
+            <label>Nombres *</label>
+            <input type="text" [(ngModel)]="form.nombres" name="nombres">
+          </div>
+          <div class="campo">
+            <label>Apellidos *</label>
+            <input type="text" [(ngModel)]="form.apellidos" name="apellidos">
+          </div>
+        </div>
+
+        <div class="fila">
+          <div class="campo">
+            <label>Teléfono *</label>
+            <input type="text" [(ngModel)]="form.telefono" name="telefono" placeholder="Ej. 5555-1234">
+          </div>
+          <div class="campo">
+            <label>Correo electrónico *</label>
+            <input type="email" [(ngModel)]="form.correo" name="correo" placeholder="nombre@clinica.com">
+          </div>
+        </div>
+
+        <div class="fila">
+          <div class="campo">
+            <label>Tipo de empleado *</label>
+            <select [ngModel]="form.tipoEmpleado" (ngModelChange)="onTipoChange($event)" name="tipoEmpleado">
+              <option value="" disabled>Seleccione...</option>
+              <option *ngFor="let t of tiposEmpleado" [value]="t">{{ t }}</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label>Sucursal *</label>
+            <select [(ngModel)]="form.idSucursal" name="idSucursal">
+              <option [ngValue]="null" disabled>Seleccione...</option>
+              <option *ngFor="let s of sucursales()" [ngValue]="s.id">{{ s.nombre }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Doctor: especialidad -->
+        <div *ngIf="form.tipoEmpleado === 'Doctor'" class="campo">
+          <label>Especialidad médica *</label>
+          <select [(ngModel)]="form.idEspecialidad" name="idEspecialidad">
+            <option [ngValue]="null" disabled>Seleccione...</option>
+            <option *ngFor="let esp of especialidades()" [ngValue]="esp.id">{{ esp.nombre }}</option>
+            <option ngValue="NUEVA">+ Agregar nueva especialidad...</option>
+          </select>
+          <input *ngIf="creandoEspecialidad" type="text" [(ngModel)]="nuevaEspecialidadTexto" name="nuevaEspecialidadTexto"
+                 placeholder="Nombre de la nueva especialidad" style="margin-top: 0.5rem; border-color: #0284c7;">
+        </div>
+
+        <!-- Enfermera / Administrativo: puesto -->
+        <div *ngIf="form.tipoEmpleado && form.tipoEmpleado !== 'Doctor'" class="campo">
+          <label>Puesto *</label>
+          <select [(ngModel)]="form.puesto" name="puesto">
+            <option value="" disabled>Seleccione...</option>
+            <option *ngFor="let p of puestosDisponibles" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+
+        <!-- Acceso al sistema -->
+        <div style="background-color: #f8fafc; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; cursor: pointer;">
+            <input type="checkbox" [(ngModel)]="form.crearAcceso" name="crearAcceso">
+            {{ teniaAcceso ? 'Acceso al sistema habilitado' : 'Habilitar usuario de acceso al sistema' }}
+          </label>
+
+          <small *ngIf="teniaAcceso && !form.crearAcceso" style="color: #b45309; display: block; margin-top: 0.5rem;">
+            ⚠️ Al guardar, el usuario quedará desactivado y no podrá iniciar sesión.
+          </small>
+
+          <div *ngIf="form.crearAcceso" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;">
+            <div class="campo">
+              <label>Nombre de usuario *</label>
+              <input type="text" [(ngModel)]="form.nombreUsuario" name="nombreUsuario" autocomplete="off">
+            </div>
+            <div class="fila">
+              <div class="campo">
+                <label>{{ teniaAcceso ? 'Nueva contraseña' : 'Contraseña *' }}</label>
+                <input type="password" [(ngModel)]="form.password" name="password" autocomplete="new-password"
+                       [placeholder]="teniaAcceso ? 'Dejar en blanco para mantener' : 'Mínimo 6 caracteres'">
+              </div>
+              <div class="campo">
+                <label>Rol *</label>
+                <select [(ngModel)]="form.idRol" name="idRol">
+                  <option [ngValue]="null" disabled>Seleccione...</option>
+                  <option *ngFor="let r of roles()" [ngValue]="r.id">{{ r.nombre }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
+          <button type="button" class="btn" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primario" [disabled]="procesando()">
+            {{ procesando() ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+</div>
