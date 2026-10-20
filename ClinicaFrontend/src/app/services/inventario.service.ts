@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 import {
   Catalogo, CatalogosInventario, Lote, LotePayload, MedicamentoInventario,
   MedicamentoPayload, Movimiento, SalidaPayload
@@ -9,7 +10,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class InventarioService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:5219/api/Inventario';
+  private apiUrl = `${environment.apiUrl}/api/Inventario`;
 
   private params(idSucursal: number | null): HttpParams {
     return idSucursal != null ? new HttpParams().set('idSucursal', idSucursal) : new HttpParams();

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-
+import { environment } from '../../environments/environment';
 export interface Rol {
   id: number;
   nombre: string;
@@ -23,7 +23,7 @@ export interface FilaPermiso {
 @Injectable({ providedIn: 'root' })
 export class RolesService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:5219/api/Roles';
+  private apiUrl = `${environment.apiUrl}/api/Roles`;
 
   obtenerRoles(): Observable<Rol[]> {
     return this.http.get<Rol[]>(this.apiUrl);

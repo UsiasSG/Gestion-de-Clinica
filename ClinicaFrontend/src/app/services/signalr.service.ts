@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface EstadoHabitacionCambiado {
   habitacionId: number;
@@ -20,7 +21,7 @@ export class SignalRService {
     const token = localStorage.getItem('jwt_token');
 
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl('http://localhost:5219/hubs/habitaciones', {
+      .withUrl(`${environment.apiUrl}/hubs/habitaciones`, {
         accessTokenFactory: () => token || ''
       })
       .withAutomaticReconnect()

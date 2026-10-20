@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface UsuarioSesion {
   id: number;
@@ -16,7 +17,7 @@ export interface UsuarioSesion {
 })
 export class AuthService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:5219/api/Auth';
+  private apiUrl = `${environment.apiUrl}/api/Auth`;
 
   private readonly TOKEN_KEY = 'jwt_token';
   private readonly USER_KEY = 'user_info';

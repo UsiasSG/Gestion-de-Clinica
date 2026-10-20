@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 import {
   CatalogosHospitalizacion, DetalleHospitalizacion, HospitalizacionResumen,
   PacienteHospitalizable, SolicitudHospitalizacionPayload
@@ -9,7 +10,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class HospitalizacionService {
   private http = inject(HttpClient);
-  private api = 'http://localhost:5219/api/hospitalizaciones';
+  private api = `${environment.apiUrl}/api/hospitalizaciones`;
 
   listar(incluirCerradas = true): Observable<HospitalizacionResumen[]> {
     return this.http.get<HospitalizacionResumen[]>(this.api, { params: new HttpParams().set('incluirCerradas', incluirCerradas) });

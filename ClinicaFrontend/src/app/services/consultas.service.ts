@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-
+import { environment } from '../../environments/environment';
 export interface DiagnosticoDto {
   codigoCie: string;
   descripcion: string;
@@ -28,7 +28,7 @@ export interface RegistroConsultaDto {
 })
 export class ConsultasService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:5219/api/Consultas';
+  private apiUrl = `${environment.apiUrl}/api/Consultas`;
 
   buscarCie10(busqueda: string): Observable<DiagnosticoDto[]> {
     const params = new HttpParams().set('busqueda', busqueda);

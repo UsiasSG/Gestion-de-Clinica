@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 import {
   ArchivoPayload, ConsultaPayload, ConsultaUpdatePayload, DiagnosticoPayload, DiagnosticoUpdatePayload,
   EvolucionPayload, ExamenPayload, HistorialClinico, TratamientoPayload
@@ -9,7 +10,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class HistorialService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:5219/api/historial';
+  private apiUrl = `${environment.apiUrl}/api/historial`;
 
   obtenerHistorial(idPaciente: number): Observable<HistorialClinico> {
     return this.http.get<HistorialClinico>(`${this.apiUrl}/paciente/${idPaciente}`);

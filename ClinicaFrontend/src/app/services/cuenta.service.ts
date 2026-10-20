@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 import {
   CargoManualPayload, CobroPayload, CuentaPaciente, FacturaDetalle, ServicioPayload, ServicioTarifario, CargoMedicamentoPayload
 } from '../models/cuenta.model';
@@ -8,8 +9,8 @@ import {
 @Injectable({ providedIn: 'root' })
 export class CuentaService {
   private http = inject(HttpClient);
-  private apiCuenta = 'http://localhost:5219/api/cuenta';
-  private apiTarifario = 'http://localhost:5219/api/tarifario';
+  private apiCuenta = `${environment.apiUrl}/api/cuenta`;
+  private apiTarifario = `${environment.apiUrl}/api/tarifario`;
 
   // ───── Cuenta del paciente ─────
   obtenerCuenta(idPaciente: number): Observable<CuentaPaciente> {

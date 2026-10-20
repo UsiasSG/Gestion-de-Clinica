@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import * as signalR from '@microsoft/signalr';
+import { environment } from '../../environments/environment';
 import {
   AsignacionPayload, CatalogosHabitaciones, EgresoPayload, EstadoHabitacion, Habitacion,
   HabitacionPayload, HistorialAsignacion, PacienteDisponible, RespuestaHabitacion
@@ -10,8 +11,8 @@ import {
 @Injectable({ providedIn: 'root' })
 export class HabitacionesService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:5219/api/Habitaciones';
-  private hubUrl = 'http://localhost:5219/hubs/habitaciones';
+  private apiUrl = `${environment.apiUrl}/api/Habitaciones`;
+  private hubUrl = `${environment.apiUrl}/hubs/habitaciones`;
 
   private conexion: signalR.HubConnection | null = null;
   private idSucursalActual: number | null = null;

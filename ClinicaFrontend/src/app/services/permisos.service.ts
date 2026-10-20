@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, finalize, of, shareReplay, tap } from 'rxjs';
 import * as signalR from '@microsoft/signalr';
+import { environment } from '../../environments/environment';
 
 export interface PermisoModulo {
   codigo: string;
@@ -17,8 +18,8 @@ export type Accion = 'consultar' | 'crear' | 'modificar' | 'eliminar';
 @Injectable({ providedIn: 'root' })
 export class PermisosService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:5219/api/Auth/permisos';
-  private hubUrl = 'http://localhost:5219/hubs/notificaciones';
+  private apiUrl = `${environment.apiUrl}/api/Auth/permisos`;
+  private hubUrl = `${environment.apiUrl}/hubs/notificaciones`;
 
   private conexion: signalR.HubConnection | null = null;
   private cargaEnCurso: Observable<PermisoModulo[]> | null = null;

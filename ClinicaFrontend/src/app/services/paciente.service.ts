@@ -2,13 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Paciente } from '../models/paciente.model';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class PacienteService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:5219/api/Pacientes';
+  private apiUrl = `${environment.apiUrl}/api/Pacientes`;
 
   obtenerPacientes(busqueda?: string): Observable<Paciente[]> {
   const url = busqueda ? `${this.apiUrl}?busqueda=${encodeURIComponent(busqueda)}` : this.apiUrl;
