@@ -73,6 +73,15 @@ namespace ClinicaBackend.API.Models
         [Column("id_consulta")]
         public int? IdConsulta { get; set; }
 
+        [Column("id_paciente")]
+        public int? IdPaciente { get; set; }
+
+        [Column("id_diagnostico")]
+        public int? IdDiagnostico { get; set; }
+
+        [Column("id_doctor")]
+        public int? IdDoctor { get; set; }
+
         [Column("descripcion")]
         public string Descripcion { get; set; } = null!;
 
@@ -85,7 +94,17 @@ namespace ClinicaBackend.API.Models
         [Column("fecha_fin")]
         public DateTime? FechaFin { get; set; }
 
+        [Column("estado")]
+        [MaxLength(20)]
+        public string? Estado { get; set; } = "Activo";
+
+        [Column("fecha_registro")]
+        public DateTime FechaRegistro { get; set; } = DateTime.Now;
+
         public virtual ConsultaMedica? Consulta { get; set; }
+        public virtual Paciente? Paciente { get; set; }
+        public virtual Diagnostico? Diagnostico { get; set; }
+        public virtual Empleado? Doctor { get; set; }
     }
 
     [Table("Examenes")]

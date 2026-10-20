@@ -321,3 +321,17 @@
   gap: .35rem;
   align-items: flex-end
 }
+
+.titulo-form {
+  font-weight: 800;
+  font-size: .85rem;
+  color: #0f172a
+}
+
+.acciones-reg {
+  display: flex;
+  gap: .9rem;
+  margin-top: .6rem;
+  padding-top: .5rem;
+  border-top: 1px dashed #e2e8f0
+}

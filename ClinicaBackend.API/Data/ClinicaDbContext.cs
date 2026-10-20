@@ -142,6 +142,15 @@ namespace ClinicaBackend.API.Data
                 .WithMany()
                 .HasForeignKey(t => t.IdConsulta);
 
+            modelBuilder.Entity<Tratamiento>()
+                 .HasOne(t => t.Paciente).WithMany().HasForeignKey(t => t.IdPaciente).OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Tratamiento>()
+                 .HasOne(t => t.Diagnostico).WithMany().HasForeignKey(t => t.IdDiagnostico).OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Tratamiento>()
+                 .HasOne(t => t.Doctor).WithMany().HasForeignKey(t => t.IdDoctor).OnDelete(DeleteBehavior.NoAction);
+
             // Exámenes
             modelBuilder.Entity<Examen>()
                 .HasOne(e => e.Paciente)

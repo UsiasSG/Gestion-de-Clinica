@@ -3,10 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { HistorialService } from '../../services/historial.service';
-import { ArchivoClinico, ExamenRegistro, HistorialClinico } from '../../models/historial.model';
+import {
+  ArchivoClinico, Consulta, DiagnosticoRegistro, EvolucionRegistro, ExamenRegistro,
+  HistorialClinico, TratamientoRegistro
+} from '../../models/historial.model';
 
-type Pestana = 'consultas' | 'examenes' | 'diagnosticos' | 'evolucion' | 'archivos';
-type Formulario = 'consulta' | 'diagnostico' | 'examen' | 'evolucion' | 'archivo' | null;
+type Pestana = 'consultas' | 'examenes' | 'diagnosticos' | 'tratamientos' | 'evolucion' | 'archivos';
+type Formulario = 'consulta' | 'diagnostico' | 'examen' | 'tratamiento' | 'evolucion' | 'archivo' | null;
 
 interface FilaDiagnostico { codigoCie: string; descripcion: string; }
 interface FilaTratamiento { descripcion: string; indicaciones: string; fechaInicio: string; fechaFin: string; }
@@ -27,6 +30,7 @@ export class HistorialClinicoComponent {
 
   readonly hoy = new Date().toISOString().slice(0, 10);
   readonly estadosSalud = ['Estable', 'Mejorando', 'Delicado', 'Crítico', 'Recuperado'];
+  readonly estadosTratamiento = ['Activo', 'Finalizado', 'Suspendido'];
   readonly categoriasArchivo = ['Resultado de examen', 'Imagen diagnóstica', 'Receta', 'Consentimiento', 'Referencia médica', 'Otro'];
   readonly tamanoMaximo = 5 * 1024 * 1024;
 
@@ -37,15 +41,16 @@ export class HistorialClinicoComponent {
   formAbierto = signal<Formulario>(null);
   procesando = signal(false);
 
+  // Id del registro que se está editando (null = creando uno nuevo)
+  editandoId: number | null = null;
+
   formConsulta = this.consultaVacia();
-  formDiagnostico = { idConsulta: null as number | null, codigoCie: '', descripcion: '', idDoctor: null as number | null };
+  formDiagnostico = this.diagnosticoVacio();
   formExamen = this.examenVacio();
-  formEvolucion = { notaEvolucion: '', estadoSalud: 'Estable', idResponsable: null as number | null };
+  formTratamiento = this.tratamientoVacio();
+  formEvolucion = this.evolucionVacia();
   formArchivo = { categoria: 'Resultado de examen', idExamen: null as number | null, descripcion: '' };
   archivoSeleccionado: File | null = null;
-
-  examenResultadoId: number | null = null;
-  textoResultado = '';
 
   constructor() {
     // Se recarga cada vez que cambia el paciente seleccionado
@@ -56,10 +61,14 @@ export class HistorialClinicoComponent {
         this.cargando.set(true);
         this.error.set(null);
         this.pestana.set('consultas');
-        this.formAbierto.set(null);
+        this.cancelarForm();
         this.cargar(id);
       });
     });
+  }
+
+  get enEdicion(): boolean {
+    return this.editandoId !== null;
   }
 
   cargar(id: number = this.idPaciente()): void {
@@ -81,25 +90,88 @@ export class HistorialClinicoComponent {
 
   cambiarPestana(p: Pestana): void {
     this.pestana.set(p);
-    this.formAbierto.set(null);
-    this.examenResultadoId = null;
+    this.cancelarForm();
   }
 
+  // ───────── Abrir formularios (crear) ─────────
+
   abrirForm(tipo: Formulario): void {
-    if (tipo === 'consulta') this.formConsulta = this.consultaVacia();
-    if (tipo === 'diagnostico') this.formDiagnostico = { idConsulta: this.historial()?.consultas[0]?.id ?? null, codigoCie: '', descripcion: '', idDoctor: null };
-    if (tipo === 'examen') this.formExamen = this.examenVacio();
-    if (tipo === 'evolucion') this.formEvolucion = { notaEvolucion: '', estadoSalud: 'Estable', idResponsable: null };
-    if (tipo === 'archivo') {
-      this.formArchivo = { categoria: 'Resultado de examen', idExamen: null, descripcion: '' };
-      this.archivoSeleccionado = null;
+    this.editandoId = null;
+    switch (tipo) {
+      case 'consulta': this.formConsulta = this.consultaVacia(); break;
+      case 'diagnostico': this.formDiagnostico = this.diagnosticoVacio(); break;
+      case 'examen': this.formExamen = this.examenVacio(); break;
+      case 'tratamiento': this.formTratamiento = this.tratamientoVacio(); break;
+      case 'evolucion': this.formEvolucion = this.evolucionVacia(); break;
+      case 'archivo':
+        this.formArchivo = { categoria: 'Resultado de examen', idExamen: null, descripcion: '' };
+        this.archivoSeleccionado = null;
+        break;
     }
     this.formAbierto.set(tipo);
+    this.irAlFormulario();
   }
 
   cancelarForm(): void {
     this.formAbierto.set(null);
-    this.examenResultadoId = null;
+    this.editandoId = null;
+  }
+
+  // ───────── Abrir formularios (editar) ─────────
+
+  editarConsulta(c: Consulta): void {
+    this.formConsulta = {
+      ...this.consultaVacia(),
+      motivoConsulta: c.motivoConsulta ?? '',
+      sintomatologia: c.sintomatologia ?? '',
+      observaciones: c.observaciones ?? ''
+    };
+    this.abrirEdicion('consulta', c.id);
+  }
+
+  editarDiagnostico(d: DiagnosticoRegistro): void {
+    this.formDiagnostico = { idConsulta: d.idConsulta, codigoCie: d.codigoCie ?? '', descripcion: d.descripcion, idDoctor: null };
+    this.abrirEdicion('diagnostico', d.id);
+  }
+
+  editarExamen(ex: ExamenRegistro): void {
+    this.formExamen = {
+      idConsulta: ex.idConsulta ?? null,
+      nombreExamen: ex.nombreExamen,
+      fechaExamen: ex.fechaExamen.slice(0, 10),
+      resultado: ex.resultado ?? '',
+      observaciones: ex.observaciones ?? ''
+    };
+    this.abrirEdicion('examen', ex.id);
+  }
+
+  editarTratamiento(t: TratamientoRegistro): void {
+    this.formTratamiento = {
+      descripcion: t.descripcion,
+      indicaciones: t.indicaciones ?? '',
+      fechaInicio: t.fechaInicio?.slice(0, 10) ?? '',
+      fechaFin: t.fechaFin?.slice(0, 10) ?? '',
+      idConsulta: t.idConsulta ?? null,
+      idDiagnostico: t.idDiagnostico ?? null,
+      idDoctor: null,
+      estado: t.estado || 'Activo'
+    };
+    this.abrirEdicion('tratamiento', t.id);
+  }
+
+  editarEvolucion(ev: EvolucionRegistro): void {
+    this.formEvolucion = { notaEvolucion: ev.notaEvolucion, estadoSalud: ev.estadoSalud ?? 'Estable', idResponsable: null };
+    this.abrirEdicion('evolucion', ev.id);
+  }
+
+  private abrirEdicion(tipo: Formulario, id: number): void {
+    this.editandoId = id;
+    this.formAbierto.set(tipo);
+    this.irAlFormulario();
+  }
+
+  private irAlFormulario(): void {
+    setTimeout(() => document.querySelector('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
   // ───────── Filas dinámicas de la consulta ─────────
@@ -120,11 +192,21 @@ export class HistorialClinicoComponent {
     this.formConsulta.tratamientos.splice(i, 1);
   }
 
-  // ───────── Consultas, diagnósticos, exámenes, evolución ─────────
+  // ───────── Guardar ─────────
 
   guardarConsulta(): void {
     const f = this.formConsulta;
     if (!f.motivoConsulta.trim()) return this.avisar('Ingrese el motivo de la consulta.');
+
+    if (this.enEdicion) {
+      this.enviar(this.service.actualizarConsulta(this.editandoId!, {
+        motivoConsulta: f.motivoConsulta.trim(),
+        sintomatologia: f.sintomatologia.trim(),
+        observaciones: f.observaciones.trim()
+      }));
+      return;
+    }
+
     if (!this.historial()?.permisos.esDoctor && f.idDoctor == null) return this.avisar('Seleccione el médico tratante.');
 
     const diagnosticos = f.diagnosticos.filter(d => d.descripcion.trim());
@@ -151,8 +233,17 @@ export class HistorialClinicoComponent {
 
   guardarDiagnostico(): void {
     const f = this.formDiagnostico;
-    if (f.idConsulta == null) return this.avisar('Seleccione la consulta a la que pertenece el diagnóstico.');
     if (!f.descripcion.trim()) return this.avisar('Ingrese la descripción del diagnóstico.');
+
+    if (this.enEdicion) {
+      this.enviar(this.service.actualizarDiagnostico(this.editandoId!, {
+        codigoCie: f.codigoCie.trim(),
+        descripcion: f.descripcion.trim()
+      }));
+      return;
+    }
+
+    if (f.idConsulta == null) return this.avisar('Seleccione la consulta a la que pertenece el diagnóstico.');
     if (!this.historial()?.permisos.esDoctor && f.idDoctor == null) return this.avisar('Seleccione el médico que asigna el diagnóstico.');
 
     this.enviar(this.service.registrarDiagnostico({
@@ -169,40 +260,89 @@ export class HistorialClinicoComponent {
     if (!f.fechaExamen) return this.avisar('Ingrese la fecha del examen.');
     if (f.fechaExamen > this.hoy) return this.avisar('La fecha del examen no puede ser futura.');
 
-    this.enviar(this.service.registrarExamen({
+    const datos = {
       idPaciente: this.idPaciente(),
       idConsulta: f.idConsulta,
       nombreExamen: f.nombreExamen.trim(),
       fechaExamen: f.fechaExamen,
       resultado: f.resultado.trim(),
       observaciones: f.observaciones.trim()
-    }));
+    };
+
+    this.enviar(this.enEdicion
+      ? this.service.actualizarExamen(this.editandoId!, datos)
+      : this.service.registrarExamen(datos));
   }
 
-  iniciarResultado(ex: ExamenRegistro): void {
-    this.examenResultadoId = ex.id;
-    this.textoResultado = ex.resultado ?? '';
-  }
+  guardarTratamiento(): void {
+    const f = this.formTratamiento;
+    if (!f.descripcion.trim()) return this.avisar('Ingrese la descripción del tratamiento.');
+    if (f.fechaInicio && f.fechaFin && f.fechaFin < f.fechaInicio) return this.avisar('La fecha de fin no puede ser anterior a la de inicio.');
+    if (!this.enEdicion && !this.historial()?.permisos.esDoctor && f.idDoctor == null) return this.avisar('Seleccione el médico que indica el tratamiento.');
 
-  guardarResultado(ex: ExamenRegistro): void {
-    if (!this.textoResultado.trim()) return this.avisar('Ingrese el resultado del examen.');
-    this.enviar(this.service.registrarResultado(ex.id, this.textoResultado.trim()));
+    const datos = {
+      idPaciente: this.idPaciente(),
+      idConsulta: f.idConsulta,
+      idDiagnostico: f.idDiagnostico,
+      idDoctor: f.idDoctor,
+      descripcion: f.descripcion.trim(),
+      indicaciones: f.indicaciones.trim(),
+      fechaInicio: f.fechaInicio || null,
+      fechaFin: f.fechaFin || null,
+      estado: f.estado
+    };
+
+    this.enviar(this.enEdicion
+      ? this.service.actualizarTratamiento(this.editandoId!, datos)
+      : this.service.registrarTratamiento(datos));
   }
 
   guardarEvolucion(): void {
-  const f = this.formEvolucion;
-  if (!f.notaEvolucion.trim()) return this.avisar('Escriba la nota de evolución.');
-  if (!this.historial()?.permisos.esPersonalClinico && f.idResponsable == null) {
-    return this.avisar('Seleccione el responsable de la nota.');
+    const f = this.formEvolucion;
+    if (!f.notaEvolucion.trim()) return this.avisar('Escriba la nota de evolución.');
+    if (!this.enEdicion && !this.historial()?.permisos.esPersonalClinico && f.idResponsable == null) {
+      return this.avisar('Seleccione el responsable de la nota.');
+    }
+
+    const datos = {
+      idPaciente: this.idPaciente(),
+      idResponsable: f.idResponsable,
+      notaEvolucion: f.notaEvolucion.trim(),
+      estadoSalud: f.estadoSalud
+    };
+
+    this.enviar(this.enEdicion
+      ? this.service.actualizarEvolucion(this.editandoId!, datos)
+      : this.service.registrarEvolucion(datos));
   }
 
-  this.enviar(this.service.registrarEvolucion({
-    idPaciente: this.idPaciente(),
-    notaEvolucion: f.notaEvolucion.trim(),
-    estadoSalud: f.estadoSalud,
-    idResponsable: f.idResponsable
-  }));
-}
+  // ───────── Eliminar ─────────
+
+  eliminarConsulta(c: Consulta): void {
+    const fecha = new Date(c.fechaConsulta).toLocaleDateString('es-GT');
+    if (!confirm(`¿Eliminar la consulta del ${fecha}?\n\nSus diagnósticos también se eliminarán. Los tratamientos y exámenes se conservarán en el historial.`)) return;
+    this.enviar(this.service.eliminarConsulta(c.id));
+  }
+
+  eliminarDiagnostico(d: DiagnosticoRegistro): void {
+    if (!confirm(`¿Eliminar el diagnóstico "${d.descripcion}"?`)) return;
+    this.enviar(this.service.eliminarDiagnostico(d.id));
+  }
+
+  eliminarExamen(ex: ExamenRegistro): void {
+    if (!confirm(`¿Eliminar el examen "${ex.nombreExamen}"?${ex.adjuntos > 0 ? '\n\nSus archivos adjuntos se conservarán en la pestaña Archivos.' : ''}`)) return;
+    this.enviar(this.service.eliminarExamen(ex.id));
+  }
+
+  eliminarTratamiento(t: TratamientoRegistro): void {
+    if (!confirm(`¿Eliminar el tratamiento "${t.descripcion}"?`)) return;
+    this.enviar(this.service.eliminarTratamiento(t.id));
+  }
+
+  eliminarEvolucion(ev: EvolucionRegistro): void {
+    if (!confirm('¿Eliminar esta nota de evolución?')) return;
+    this.enviar(this.service.eliminarEvolucion(ev.id));
+  }
 
   // ───────── Archivos adjuntos ─────────
 
@@ -306,6 +446,12 @@ export class HistorialClinicoComponent {
     return 'b-verde';
   }
 
+  claseTratamiento(estado: string): string {
+    if (estado === 'Finalizado') return 'b-azul';
+    if (estado === 'Suspendido') return 'b-rojo';
+    return 'b-verde';
+  }
+
   private enviar(peticion: Observable<any>): void {
     if (this.procesando()) return;
     this.procesando.set(true);
@@ -313,11 +459,10 @@ export class HistorialClinicoComponent {
     peticion.subscribe({
       next: (res) => {
         this.procesando.set(false);
-        this.formAbierto.set(null);
-        this.examenResultadoId = null;
+        this.cancelarForm();
         this.archivoSeleccionado = null;
         this.cargar();
-        setTimeout(() => alert(res?.mensaje ?? 'Registro guardado correctamente.'));
+        setTimeout(() => alert(res?.mensaje ?? 'Operación realizada correctamente.'));
       },
       error: (err) => {
         console.error(err);
@@ -342,7 +487,33 @@ export class HistorialClinicoComponent {
     };
   }
 
+  private diagnosticoVacio() {
+    return {
+      idConsulta: this.historial()?.consultas[0]?.id ?? null as number | null,
+      codigoCie: '',
+      descripcion: '',
+      idDoctor: null as number | null
+    };
+  }
+
   private examenVacio() {
     return { idConsulta: null as number | null, nombreExamen: '', fechaExamen: this.hoy, resultado: '', observaciones: '' };
+  }
+
+  private tratamientoVacio() {
+    return {
+      descripcion: '',
+      indicaciones: '',
+      fechaInicio: this.hoy,
+      fechaFin: '',
+      idConsulta: null as number | null,
+      idDiagnostico: null as number | null,
+      idDoctor: null as number | null,
+      estado: 'Activo'
+    };
+  }
+
+  private evolucionVacia() {
+    return { notaEvolucion: '', estadoSalud: 'Estable', idResponsable: null as number | null };
   }
 }

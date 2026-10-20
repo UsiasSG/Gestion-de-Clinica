@@ -1153,6 +1153,11 @@ namespace ClinicaBackend.API.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("descripcion");
 
+                    b.Property<string>("Estado")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("estado");
+
                     b.Property<DateTime?>("FechaFin")
                         .HasColumnType("datetime2")
                         .HasColumnName("fecha_fin");
@@ -1161,9 +1166,25 @@ namespace ClinicaBackend.API.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("fecha_inicio");
 
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha_registro");
+
                     b.Property<int?>("IdConsulta")
                         .HasColumnType("int")
                         .HasColumnName("id_consulta");
+
+                    b.Property<int?>("IdDiagnostico")
+                        .HasColumnType("int")
+                        .HasColumnName("id_diagnostico");
+
+                    b.Property<int?>("IdDoctor")
+                        .HasColumnType("int")
+                        .HasColumnName("id_doctor");
+
+                    b.Property<int?>("IdPaciente")
+                        .HasColumnType("int")
+                        .HasColumnName("id_paciente");
 
                     b.Property<string>("Indicaciones")
                         .HasColumnType("nvarchar(max)")
@@ -1172,6 +1193,12 @@ namespace ClinicaBackend.API.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("IdConsulta");
+
+                    b.HasIndex("IdDiagnostico");
+
+                    b.HasIndex("IdDoctor");
+
+                    b.HasIndex("IdPaciente");
 
                     b.ToTable("Tratamientos");
                 });
@@ -1514,7 +1541,28 @@ namespace ClinicaBackend.API.Migrations
                         .WithMany()
                         .HasForeignKey("IdConsulta");
 
+                    b.HasOne("ClinicaBackend.API.Models.Diagnostico", "Diagnostico")
+                        .WithMany()
+                        .HasForeignKey("IdDiagnostico")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Empleado", "Doctor")
+                        .WithMany()
+                        .HasForeignKey("IdDoctor")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("ClinicaBackend.API.Models.Paciente", "Paciente")
+                        .WithMany()
+                        .HasForeignKey("IdPaciente")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.Navigation("Consulta");
+
+                    b.Navigation("Diagnostico");
+
+                    b.Navigation("Doctor");
+
+                    b.Navigation("Paciente");
                 });
 
             modelBuilder.Entity("ClinicaBackend.API.Models.Usuario", b =>

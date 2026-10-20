@@ -20,6 +20,7 @@ namespace ClinicaBackend.API.Controllers
     public class HistorialClinicoController : ControllerBase
     {
         private static readonly string[] EstadosSalud = { "Estable", "Mejorando", "Delicado", "Crítico", "Recuperado" };
+        private static readonly string[] EstadosTratamiento = { "Activo", "Finalizado", "Suspendido" };
 
         private const long TamanoMaximoArchivo = 5 * 1024 * 1024; // 5 MB
 
@@ -109,6 +110,31 @@ namespace ClinicaBackend.API.Controllers
                 })
                 .ToListAsync();
 
+            var tratamientos = await _db.Tratamientos.AsNoTracking()
+                .Where(t => t.IdPaciente == idPaciente
+                         || (t.IdPaciente == null && t.Consulta != null && t.Consulta.IdPaciente == idPaciente))
+                .OrderByDescending(t => t.FechaRegistro)
+                .Select(t => new
+                {
+                    t.Id,
+                    t.IdConsulta,
+                    t.IdDiagnostico,
+                    t.Descripcion,
+                    t.Indicaciones,
+                    t.FechaInicio,
+                    t.FechaFin,
+                    Estado = t.Estado ?? "Activo",
+                    t.FechaRegistro,
+                    Doctor = t.Doctor != null
+                        ? t.Doctor.Nombres + " " + t.Doctor.Apellidos
+                        : (t.Consulta != null && t.Consulta.Doctor != null
+                            ? t.Consulta.Doctor.Nombres + " " + t.Consulta.Doctor.Apellidos
+                            : "No asignado"),
+                    Diagnostico = t.Diagnostico != null ? t.Diagnostico.Descripcion : null,
+                    MotivoConsulta = t.Consulta != null ? t.Consulta.MotivoConsulta : null
+                })
+                .ToListAsync();
+
             var examenes = await _db.Examenes.AsNoTracking()
                 .Where(e => e.IdPaciente == idPaciente)
                 .OrderByDescending(e => e.FechaExamen)
@@ -178,10 +204,10 @@ namespace ClinicaBackend.API.Controllers
 
             var permisos = await PermisosDelUsuarioAsync();
 
-            return Ok(new { paciente, consultas, diagnosticos, examenes, evolucion, archivos, medicos, personalClinico, permisos });
+            return Ok(new { paciente, consultas, diagnosticos, tratamientos, examenes, evolucion, archivos, medicos, personalClinico, permisos });
         }
 
-        // ═══════════════ CONSULTAS Y TRATAMIENTOS ═══════════════
+        // ═══════════════ CONSULTAS ═══════════════
 
         // POST: api/historial/consultas
         [HttpPost("consultas")]
@@ -200,7 +226,7 @@ namespace ClinicaBackend.API.Controllers
             var tratamientos = (model.Tratamientos ?? new()).Where(t => !string.IsNullOrWhiteSpace(t.Descripcion)).ToList();
 
             // Regla 14f: los diagnósticos requieren su propio permiso
-            if (diagnosticos.Count > 0 && !await _permisos.TienePermisoAsync(User.ObtenerIdUsuario()!.Value, "DIAGNOSTICOS", "Crear"))
+            if (diagnosticos.Count > 0 && !await _permisos.TienePermisoAsync(IdUsuarioActual(), "DIAGNOSTICOS", "Crear"))
                 return StatusCode(403, new { mensaje = "Su rol no tiene permiso para registrar diagnósticos. Guarde la consulta sin diagnósticos." });
 
             if (tratamientos.Any(t => t.FechaInicio != null && t.FechaFin != null && t.FechaFin < t.FechaInicio))
@@ -235,10 +261,14 @@ namespace ClinicaBackend.API.Controllers
                 _db.Tratamientos.Add(new Tratamiento
                 {
                     Consulta = consulta,
+                    IdPaciente = model.IdPaciente,
+                    IdDoctor = doctor.Id,
                     Descripcion = t.Descripcion!.Trim(),
                     Indicaciones = Limpiar(t.Indicaciones),
                     FechaInicio = t.FechaInicio?.Date,
-                    FechaFin = t.FechaFin?.Date
+                    FechaFin = t.FechaFin?.Date,
+                    Estado = "Activo",
+                    FechaRegistro = DateTime.Now
                 });
             }
 
@@ -247,29 +277,133 @@ namespace ClinicaBackend.API.Controllers
             return Ok(new { mensaje = "Consulta registrada correctamente.", id = consulta.Id });
         }
 
+        // PUT: api/historial/consultas/5
+        [HttpPut("consultas/{id:int}")]
+        [RequierePermiso("HISTORIAL", "Modificar")]
+        public async Task<IActionResult> ActualizarConsulta(int id, [FromBody] ConsultaUpdateDto model)
+        {
+            var consulta = await _db.ConsultasMedicas.FindAsync(id);
+            if (consulta == null) return NotFound(new { mensaje = "Consulta no encontrada." });
+            if (string.IsNullOrWhiteSpace(model.MotivoConsulta))
+                return BadRequest(new { mensaje = "El motivo de la consulta es obligatorio." });
+
+            consulta.MotivoConsulta = model.MotivoConsulta.Trim();
+            consulta.Sintomatologia = Limpiar(model.Sintomatologia);
+            consulta.Observaciones = Limpiar(model.Observaciones);
+
+            await _db.SaveChangesAsync();
+            return Ok(new { mensaje = "Consulta actualizada correctamente." });
+        }
+
+        // DELETE: api/historial/consultas/5
+        [HttpDelete("consultas/{id:int}")]
+        [RequierePermiso("HISTORIAL", "Eliminar")]
+        public async Task<IActionResult> EliminarConsulta(int id)
+        {
+            var consulta = await _db.ConsultasMedicas.FindAsync(id);
+            if (consulta == null) return NotFound(new { mensaje = "Consulta no encontrada." });
+
+            var diagnosticos = await _db.Diagnosticos.Where(d => d.IdConsulta == id).ToListAsync();
+            if (diagnosticos.Count > 0 && !await _permisos.TienePermisoAsync(IdUsuarioActual(), "DIAGNOSTICOS", "Eliminar"))
+                return StatusCode(403, new { mensaje = "La consulta tiene diagnósticos y su rol no tiene permiso para eliminarlos." });
+
+            var idsDiagnosticos = diagnosticos.Select(d => d.Id).ToList();
+
+            // Los tratamientos se conservan: solo se desvinculan de la consulta y sus diagnósticos
+            var tratamientos = await _db.Tratamientos
+                .Where(t => t.IdConsulta == id || (t.IdDiagnostico != null && idsDiagnosticos.Contains(t.IdDiagnostico.Value)))
+                .ToListAsync();
+            foreach (var t in tratamientos)
+            {
+                if (t.IdConsulta == id)
+                {
+                    t.IdPaciente ??= consulta.IdPaciente;
+                    t.IdDoctor ??= consulta.IdDoctor;
+                    t.IdConsulta = null;
+                }
+                if (t.IdDiagnostico != null && idsDiagnosticos.Contains(t.IdDiagnostico.Value))
+                    t.IdDiagnostico = null;
+            }
+
+            // Los exámenes también se conservan
+            var examenes = await _db.Examenes.Where(e => e.IdConsulta == id).ToListAsync();
+            foreach (var e in examenes) e.IdConsulta = null;
+
+            _db.Diagnosticos.RemoveRange(diagnosticos);
+            _db.ConsultasMedicas.Remove(consulta);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { mensaje = "Consulta eliminada. Sus tratamientos y exámenes se conservaron en el historial." });
+        }
+
+        // ═══════════════ TRATAMIENTOS ═══════════════
+
         // POST: api/historial/tratamientos
         [HttpPost("tratamientos")]
         [RequierePermiso("HISTORIAL", "Crear")]
         public async Task<IActionResult> RegistrarTratamiento([FromBody] TratamientoRequestDto model)
         {
-            if (model.IdConsulta == null || !await _db.ConsultasMedicas.AnyAsync(c => c.Id == model.IdConsulta))
-                return BadRequest(new { mensaje = "Consulta no válida." });
-            if (string.IsNullOrWhiteSpace(model.Descripcion))
-                return BadRequest(new { mensaje = "La descripción del tratamiento es obligatoria." });
-            if (model.FechaInicio != null && model.FechaFin != null && model.FechaFin < model.FechaInicio)
-                return BadRequest(new { mensaje = "La fecha de fin no puede ser anterior a la de inicio." });
+            var error = await ValidarTratamientoAsync(model);
+            if (error != null) return BadRequest(new { mensaje = error });
 
-            _db.Tratamientos.Add(new Tratamiento
+            var (doctor, errorDoctor) = await ResolverResponsableAsync(model.IdDoctor, soloDoctores: true);
+            if (doctor == null) return BadRequest(new { mensaje = errorDoctor });
+
+            var tratamiento = new Tratamiento
             {
+                IdPaciente = model.IdPaciente,
                 IdConsulta = model.IdConsulta,
-                Descripcion = model.Descripcion.Trim(),
+                IdDiagnostico = model.IdDiagnostico,
+                IdDoctor = doctor.Id,
+                Descripcion = model.Descripcion!.Trim(),
                 Indicaciones = Limpiar(model.Indicaciones),
                 FechaInicio = model.FechaInicio?.Date,
-                FechaFin = model.FechaFin?.Date
-            });
+                FechaFin = model.FechaFin?.Date,
+                Estado = NormalizarEstadoTratamiento(model.Estado),
+                FechaRegistro = DateTime.Now
+            };
+
+            _db.Tratamientos.Add(tratamiento);
+            await _db.SaveChangesAsync();
+            return Ok(new { mensaje = "Tratamiento registrado correctamente.", id = tratamiento.Id });
+        }
+
+        // PUT: api/historial/tratamientos/5
+        [HttpPut("tratamientos/{id:int}")]
+        [RequierePermiso("HISTORIAL", "Modificar")]
+        public async Task<IActionResult> ActualizarTratamiento(int id, [FromBody] TratamientoRequestDto model)
+        {
+            var tratamiento = await _db.Tratamientos.Include(t => t.Consulta).FirstOrDefaultAsync(t => t.Id == id);
+            if (tratamiento == null) return NotFound(new { mensaje = "Tratamiento no encontrado." });
+
+            model.IdPaciente = tratamiento.IdPaciente ?? tratamiento.Consulta?.IdPaciente;
+            var error = await ValidarTratamientoAsync(model);
+            if (error != null) return BadRequest(new { mensaje = error });
+
+            tratamiento.IdPaciente = model.IdPaciente;
+            tratamiento.IdConsulta = model.IdConsulta;
+            tratamiento.IdDiagnostico = model.IdDiagnostico;
+            tratamiento.Descripcion = model.Descripcion!.Trim();
+            tratamiento.Indicaciones = Limpiar(model.Indicaciones);
+            tratamiento.FechaInicio = model.FechaInicio?.Date;
+            tratamiento.FechaFin = model.FechaFin?.Date;
+            tratamiento.Estado = NormalizarEstadoTratamiento(model.Estado);
 
             await _db.SaveChangesAsync();
-            return Ok(new { mensaje = "Tratamiento registrado correctamente." });
+            return Ok(new { mensaje = "Tratamiento actualizado correctamente." });
+        }
+
+        // DELETE: api/historial/tratamientos/5
+        [HttpDelete("tratamientos/{id:int}")]
+        [RequierePermiso("HISTORIAL", "Eliminar")]
+        public async Task<IActionResult> EliminarTratamiento(int id)
+        {
+            var tratamiento = await _db.Tratamientos.FindAsync(id);
+            if (tratamiento == null) return NotFound(new { mensaje = "Tratamiento no encontrado." });
+
+            _db.Tratamientos.Remove(tratamiento);
+            await _db.SaveChangesAsync();
+            return Ok(new { mensaje = "Tratamiento eliminado correctamente." });
         }
 
         // ═══════════════ DIAGNÓSTICOS (regla 14f) ═══════════════
@@ -300,6 +434,40 @@ namespace ClinicaBackend.API.Controllers
             return Ok(new { mensaje = "Diagnóstico registrado correctamente." });
         }
 
+        // PUT: api/historial/diagnosticos/5
+        [HttpPut("diagnosticos/{id:int}")]
+        [RequierePermiso("DIAGNOSTICOS", "Modificar")]
+        public async Task<IActionResult> ActualizarDiagnostico(int id, [FromBody] DiagnosticoItemDto model)
+        {
+            var diagnostico = await _db.Diagnosticos.FindAsync(id);
+            if (diagnostico == null) return NotFound(new { mensaje = "Diagnóstico no encontrado." });
+            if (string.IsNullOrWhiteSpace(model.Descripcion))
+                return BadRequest(new { mensaje = "La descripción del diagnóstico es obligatoria." });
+
+            diagnostico.CodigoCie = Limpiar(model.CodigoCie)?.ToUpperInvariant();
+            diagnostico.Descripcion = model.Descripcion.Trim();
+
+            await _db.SaveChangesAsync();
+            return Ok(new { mensaje = "Diagnóstico actualizado correctamente." });
+        }
+
+        // DELETE: api/historial/diagnosticos/5
+        [HttpDelete("diagnosticos/{id:int}")]
+        [RequierePermiso("DIAGNOSTICOS", "Eliminar")]
+        public async Task<IActionResult> EliminarDiagnostico(int id)
+        {
+            var diagnostico = await _db.Diagnosticos.FindAsync(id);
+            if (diagnostico == null) return NotFound(new { mensaje = "Diagnóstico no encontrado." });
+
+            // Los tratamientos basados en este diagnóstico se conservan, solo se desvinculan
+            var tratamientos = await _db.Tratamientos.Where(t => t.IdDiagnostico == id).ToListAsync();
+            foreach (var t in tratamientos) t.IdDiagnostico = null;
+
+            _db.Diagnosticos.Remove(diagnostico);
+            await _db.SaveChangesAsync();
+            return Ok(new { mensaje = "Diagnóstico eliminado correctamente." });
+        }
+
         // ═══════════════ EXÁMENES ═══════════════
 
         // POST: api/historial/examenes  (el resultado puede quedar pendiente)
@@ -309,23 +477,17 @@ namespace ClinicaBackend.API.Controllers
         {
             if (model.IdPaciente == null || !await _db.Pacientes.AnyAsync(p => p.Id == model.IdPaciente))
                 return BadRequest(new { mensaje = "Paciente no válido." });
-            if (string.IsNullOrWhiteSpace(model.NombreExamen))
-                return BadRequest(new { mensaje = "El nombre del examen es obligatorio." });
 
-            var fecha = model.FechaExamen ?? DateTime.Now;
-            if (fecha > DateTime.Now.AddMinutes(5))
-                return BadRequest(new { mensaje = "La fecha del examen no puede ser futura." });
-
-            if (model.IdConsulta != null && !await _db.ConsultasMedicas.AnyAsync(c => c.Id == model.IdConsulta && c.IdPaciente == model.IdPaciente))
-                return BadRequest(new { mensaje = "La consulta seleccionada no pertenece a este paciente." });
+            var error = await ValidarExamenAsync(model, model.IdPaciente.Value);
+            if (error != null) return BadRequest(new { mensaje = error });
 
             _db.Examenes.Add(new Examen
             {
                 IdPaciente = model.IdPaciente,
                 IdConsulta = model.IdConsulta,
-                NombreExamen = model.NombreExamen.Trim(),
+                NombreExamen = model.NombreExamen!.Trim(),
                 Resultado = Limpiar(model.Resultado),
-                FechaExamen = fecha,
+                FechaExamen = model.FechaExamen ?? DateTime.Now,
                 Observaciones = Limpiar(model.Observaciones)
             });
 
@@ -333,7 +495,28 @@ namespace ClinicaBackend.API.Controllers
             return Ok(new { mensaje = "Examen registrado correctamente." });
         }
 
-        // PUT: api/historial/examenes/5/resultado
+        // PUT: api/historial/examenes/5
+        [HttpPut("examenes/{id:int}")]
+        [RequierePermiso("HISTORIAL", "Modificar")]
+        public async Task<IActionResult> ActualizarExamen(int id, [FromBody] ExamenRequestDto model)
+        {
+            var examen = await _db.Examenes.FindAsync(id);
+            if (examen == null) return NotFound(new { mensaje = "Examen no encontrado." });
+
+            var error = await ValidarExamenAsync(model, examen.IdPaciente ?? 0);
+            if (error != null) return BadRequest(new { mensaje = error });
+
+            examen.IdConsulta = model.IdConsulta;
+            examen.NombreExamen = model.NombreExamen!.Trim();
+            examen.Resultado = Limpiar(model.Resultado);
+            examen.FechaExamen = model.FechaExamen ?? examen.FechaExamen;
+            examen.Observaciones = Limpiar(model.Observaciones);
+
+            await _db.SaveChangesAsync();
+            return Ok(new { mensaje = "Examen actualizado correctamente." });
+        }
+
+        // PUT: api/historial/examenes/5/resultado  (acceso rápido para registrar solo el resultado)
         [HttpPut("examenes/{id:int}/resultado")]
         [RequierePermiso("HISTORIAL", "Modificar")]
         public async Task<IActionResult> RegistrarResultado(int id, [FromBody] ResultadoExamenDto model)
@@ -350,6 +533,28 @@ namespace ClinicaBackend.API.Controllers
             return Ok(new { mensaje = "Resultado registrado correctamente." });
         }
 
+        // DELETE: api/historial/examenes/5
+        [HttpDelete("examenes/{id:int}")]
+        [RequierePermiso("HISTORIAL", "Eliminar")]
+        public async Task<IActionResult> EliminarExamen(int id)
+        {
+            var examen = await _db.Examenes.FindAsync(id);
+            if (examen == null) return NotFound(new { mensaje = "Examen no encontrado." });
+
+            // Los archivos adjuntos se conservan en el historial, solo se desvinculan del examen
+            var archivos = await _db.ArchivosClinicos.Where(a => a.IdExamen == id).ToListAsync();
+            foreach (var a in archivos) a.IdExamen = null;
+
+            _db.Examenes.Remove(examen);
+            await _db.SaveChangesAsync();
+            return Ok(new
+            {
+                mensaje = archivos.Count > 0
+                ? "Examen eliminado. Sus archivos adjuntos se conservaron en la pestaña Archivos."
+                : "Examen eliminado correctamente."
+            });
+        }
+
         // ═══════════════ EVOLUCIÓN ═══════════════
 
         // POST: api/historial/evolucion
@@ -359,13 +564,9 @@ namespace ClinicaBackend.API.Controllers
         {
             if (model.IdPaciente == null || !await _db.Pacientes.AnyAsync(p => p.Id == model.IdPaciente))
                 return BadRequest(new { mensaje = "Paciente no válido." });
-            if (string.IsNullOrWhiteSpace(model.NotaEvolucion))
-                return BadRequest(new { mensaje = "La nota de evolución es obligatoria." });
 
-            var estado = string.IsNullOrWhiteSpace(model.EstadoSalud) ? null
-                : EstadosSalud.FirstOrDefault(e => e.Equals(model.EstadoSalud.Trim(), StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrWhiteSpace(model.EstadoSalud) && estado == null)
-                return BadRequest(new { mensaje = "Estado de salud no válido." });
+            var (estado, errorEstado) = ValidarEvolucion(model);
+            if (errorEstado != null) return BadRequest(new { mensaje = errorEstado });
 
             var (responsable, errorResponsable) = await ResolverResponsableAsync(model.IdResponsable, soloDoctores: false);
             if (responsable == null) return BadRequest(new { mensaje = errorResponsable });
@@ -375,12 +576,43 @@ namespace ClinicaBackend.API.Controllers
                 IdPaciente = model.IdPaciente,
                 IdDoctor = responsable.Id,
                 FechaRegistro = DateTime.Now,
-                NotaEvolucion = model.NotaEvolucion.Trim(),
+                NotaEvolucion = model.NotaEvolucion!.Trim(),
                 EstadoSalud = estado
             });
 
             await _db.SaveChangesAsync();
             return Ok(new { mensaje = "Nota de evolución registrada correctamente." });
+        }
+
+        // PUT: api/historial/evolucion/5
+        [HttpPut("evolucion/{id:int}")]
+        [RequierePermiso("HISTORIAL", "Modificar")]
+        public async Task<IActionResult> ActualizarEvolucion(int id, [FromBody] EvolucionRequestDto model)
+        {
+            var nota = await _db.EvolucionesPaciente.FindAsync(id);
+            if (nota == null) return NotFound(new { mensaje = "Nota de evolución no encontrada." });
+
+            var (estado, errorEstado) = ValidarEvolucion(model);
+            if (errorEstado != null) return BadRequest(new { mensaje = errorEstado });
+
+            nota.NotaEvolucion = model.NotaEvolucion!.Trim();
+            nota.EstadoSalud = estado;
+
+            await _db.SaveChangesAsync();
+            return Ok(new { mensaje = "Nota de evolución actualizada correctamente." });
+        }
+
+        // DELETE: api/historial/evolucion/5
+        [HttpDelete("evolucion/{id:int}")]
+        [RequierePermiso("HISTORIAL", "Eliminar")]
+        public async Task<IActionResult> EliminarEvolucion(int id)
+        {
+            var nota = await _db.EvolucionesPaciente.FindAsync(id);
+            if (nota == null) return NotFound(new { mensaje = "Nota de evolución no encontrada." });
+
+            _db.EvolucionesPaciente.Remove(nota);
+            await _db.SaveChangesAsync();
+            return Ok(new { mensaje = "Nota de evolución eliminada correctamente." });
         }
 
         // ═══════════════ ARCHIVOS ADJUNTOS ═══════════════
@@ -469,6 +701,8 @@ namespace ClinicaBackend.API.Controllers
 
         // ═══════════════ AUXILIARES ═══════════════
 
+        private int IdUsuarioActual() => User.ObtenerIdUsuario() ?? 0;
+
         private static bool FirmaValida(byte[] b, string extension) => extension.ToLowerInvariant() switch
         {
             ".pdf" => b.Length > 4 && b[0] == 0x25 && b[1] == 0x50 && b[2] == 0x44 && b[3] == 0x46,  // %PDF
@@ -476,6 +710,48 @@ namespace ClinicaBackend.API.Controllers
             ".jpg" or ".jpeg" => b.Length > 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF,       // JPEG
             _ => false
         };
+
+        private async Task<string?> ValidarTratamientoAsync(TratamientoRequestDto m)
+        {
+            if (m.IdPaciente == null || !await _db.Pacientes.AnyAsync(p => p.Id == m.IdPaciente))
+                return "Paciente no válido.";
+            if (string.IsNullOrWhiteSpace(m.Descripcion))
+                return "La descripción del tratamiento es obligatoria.";
+            if (m.FechaInicio != null && m.FechaFin != null && m.FechaFin < m.FechaInicio)
+                return "La fecha de fin no puede ser anterior a la de inicio.";
+            if (!string.IsNullOrWhiteSpace(m.Estado) && !EstadosTratamiento.Contains(m.Estado.Trim(), StringComparer.OrdinalIgnoreCase))
+                return "Estado de tratamiento no válido.";
+            if (m.IdConsulta != null && !await _db.ConsultasMedicas.AnyAsync(c => c.Id == m.IdConsulta && c.IdPaciente == m.IdPaciente))
+                return "La consulta seleccionada no pertenece a este paciente.";
+            if (m.IdDiagnostico != null && !await _db.Diagnosticos.AnyAsync(d => d.Id == m.IdDiagnostico && d.Consulta != null && d.Consulta.IdPaciente == m.IdPaciente))
+                return "El diagnóstico seleccionado no pertenece a este paciente.";
+            return null;
+        }
+
+        private static string NormalizarEstadoTratamiento(string? estado) =>
+            EstadosTratamiento.FirstOrDefault(e => e.Equals(estado?.Trim(), StringComparison.OrdinalIgnoreCase)) ?? "Activo";
+
+        private async Task<string?> ValidarExamenAsync(ExamenRequestDto m, int idPaciente)
+        {
+            if (string.IsNullOrWhiteSpace(m.NombreExamen))
+                return "El nombre del examen es obligatorio.";
+            if (m.FechaExamen != null && m.FechaExamen > DateTime.Now.AddMinutes(5))
+                return "La fecha del examen no puede ser futura.";
+            if (m.IdConsulta != null && !await _db.ConsultasMedicas.AnyAsync(c => c.Id == m.IdConsulta && c.IdPaciente == idPaciente))
+                return "La consulta seleccionada no pertenece a este paciente.";
+            return null;
+        }
+
+        private static (string? Estado, string? Error) ValidarEvolucion(EvolucionRequestDto m)
+        {
+            if (string.IsNullOrWhiteSpace(m.NotaEvolucion))
+                return (null, "La nota de evolución es obligatoria.");
+            if (string.IsNullOrWhiteSpace(m.EstadoSalud))
+                return (null, null);
+
+            var estado = EstadosSalud.FirstOrDefault(e => e.Equals(m.EstadoSalud.Trim(), StringComparison.OrdinalIgnoreCase));
+            return estado == null ? (null, "Estado de salud no válido.") : (estado, null);
+        }
 
         private async Task<Empleado?> EmpleadoActualAsync()
         {
@@ -506,7 +782,7 @@ namespace ClinicaBackend.API.Controllers
         // Permisos del usuario para que la pantalla muestre u oculte los botones
         private async Task<object> PermisosDelUsuarioAsync()
         {
-            var idUsuario = User.ObtenerIdUsuario() ?? 0;
+            var idUsuario = IdUsuarioActual();
             var empleado = await EmpleadoActualAsync();
             var tipo = empleado?.TipoEmpleado;
 
@@ -516,6 +792,8 @@ namespace ClinicaBackend.API.Controllers
                 Modificar = await _permisos.TienePermisoAsync(idUsuario, "HISTORIAL", "Modificar"),
                 Eliminar = await _permisos.TienePermisoAsync(idUsuario, "HISTORIAL", "Eliminar"),
                 Diagnosticar = await _permisos.TienePermisoAsync(idUsuario, "DIAGNOSTICOS", "Crear"),
+                ModificarDiagnostico = await _permisos.TienePermisoAsync(idUsuario, "DIAGNOSTICOS", "Modificar"),
+                EliminarDiagnostico = await _permisos.TienePermisoAsync(idUsuario, "DIAGNOSTICOS", "Eliminar"),
                 EsDoctor = tipo == "Doctor",
                 EsPersonalClinico = tipo == "Doctor" || tipo == "Enfermera",
                 Empleado = empleado != null ? $"{empleado.Nombres} {empleado.Apellidos} ({empleado.TipoEmpleado})" : null
@@ -538,10 +816,23 @@ namespace ClinicaBackend.API.Controllers
         public List<TratamientoItemDto>? Tratamientos { get; set; }
     }
 
+    public class ConsultaUpdateDto
+    {
+        public string? MotivoConsulta { get; set; }
+        public string? Sintomatologia { get; set; }
+        public string? Observaciones { get; set; }
+    }
+
     public class DiagnosticoItemDto
     {
         public string? CodigoCie { get; set; }
         public string? Descripcion { get; set; }
+    }
+
+    public class DiagnosticoRequestDto : DiagnosticoItemDto
+    {
+        public int? IdConsulta { get; set; }
+        public int? IdDoctor { get; set; }
     }
 
     public class TratamientoItemDto
@@ -554,13 +845,11 @@ namespace ClinicaBackend.API.Controllers
 
     public class TratamientoRequestDto : TratamientoItemDto
     {
+        public int? IdPaciente { get; set; }
         public int? IdConsulta { get; set; }
-    }
-
-    public class DiagnosticoRequestDto : DiagnosticoItemDto
-    {
-        public int? IdConsulta { get; set; }
+        public int? IdDiagnostico { get; set; }
         public int? IdDoctor { get; set; }
+        public string? Estado { get; set; }
     }
 
     public class ExamenRequestDto

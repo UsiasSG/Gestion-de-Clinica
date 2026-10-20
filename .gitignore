@@ -25,3 +25,6 @@ appsettings.*.local.json
 .DS_Store
 Thumbs.db
 *.tmp
+# Excluir variables de entorno con credenciales sensibles
+docker.env
+*.env
